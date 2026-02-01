@@ -21,15 +21,27 @@ interface Message {
 
 interface TelemetryData {
   bpm: number;
+  hrv: number;
+  spo2: number;
   weight: number;
-  status: string;
+  muscleMass: number;
+  bodyWater: number;
+  visceralFat: number;
+  bmr: number;
+  target: number;
+  phaseAngle: number;
+  pbf: number;
+}
+
+interface ChatInterfaceProps {
+  telemetry: TelemetryData;
+  isEmergency?: boolean;
 }
 
 export default function ChatInterface({ 
+  telemetry,
   isEmergency = false 
-}: { 
-  isEmergency?: boolean 
-}) {
+}: ChatInterfaceProps) {
   const [messages, setMessages] = useState<Message[]>([
     {
       role: 'assistant',
@@ -39,13 +51,6 @@ export default function ChatInterface({
   ]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  
-  // Telemetría simulada basada en el perfil de Abraham
-  const [telemetry] = useState<TelemetryData>({
-    bpm: 72,
-    weight: 71.0,
-    status: 'Análisis Predictivo Activo'
-  });
 
   const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -90,7 +95,7 @@ export default function ChatInterface({
           <div>
             <h3 className="text-white font-bold text-sm tracking-widest uppercase italic font-sans">Helena Intelligence</h3>
             <p className="text-[10px] text-cyan-400/70 font-mono uppercase tracking-wider">
-              {isEmergency ? '⚠ Protocolo de Emergencia' : `Online • ${telemetry.status}`}
+              {isEmergency ? '⚠ Protocolo de Emergencia' : 'Online • Análisis Predictivo Activo'}
             </p>
           </div>
         </div>
