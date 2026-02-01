@@ -1,58 +1,100 @@
-import { NextResponse } from 'next/server';
+'use client';
 
-export const dynamic = 'force-dynamic';
+import { useState, useEffect, useRef } from 'react';
+import { Send, Cpu, User, Activity, Scale } from 'lucide-react';
 
-export async function POST(req: Request) {
-  try {
-    const { messages, telemetry } = await req.json();
-
-    // 1. Llamada a Groq con stream: false
-    const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [
-          { 
-            role: "system", 
-            content: `Eres Curie, asistente médico de Visionary AI. 
-            DATOS DEL PACIENTE (Abraham):
-            - Peso actual: ${telemetry?.weight || '71'}kg
-            - Objetivo: 80kg (Protocolo Rikishi)
-            - Estado: ${telemetry?.bpm > 100 ? 'Taquicardia leve' : 'Normal'}.
-            Tu tono es técnico, clínico y motivador. Sé breve y directo.` 
-          },
-          ...messages
-        ],
-        temperature: 0.7,
-        max_tokens: 1024,
-        stream: false // <--- OBLIGATORIO: Para que devuelva un JSON sólido
-      }),
-    });
-
-    const data = await response.json();
-
-    // 2. Validación de respuesta de la API de Groq
-    if (data.choices && data.choices[0]?.message?.content) {
-      return NextResponse.json({ 
-        content: data.choices[0].message.content 
-      });
+export default function ChatInterface({ telemetry, isEmergency }) {
+  const [messages, setMessages] = useState([
+    {
+      role: 'assistant',
+      content: `Hola Abraham, veo que pesas ${telemetry.weight}kg. ¿En qué puedo ayudarte hoy?`,
+      timestamp: new Date()
     }
+  ]);
+  const [input, setInput] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
+  const scrollRef = useRef(null);
 
-    console.error("Error en formato de Groq:", data);
-    return NextResponse.json(
-      { content: "Error: Groq no devolvió el formato esperado." }, 
-      { status: 500 }
-    );
+  useEffect(() => {
+    scrollRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
 
-  } catch (error: any) {
-    console.error("Error en API Route:", error);
-    return NextResponse.json(
-      { content: "Error interno del servidor: " + error.message }, 
-      { status: 500 }
-    );
-  }
+  const sendMessage = async () => {
+    if (!input.trim()) return;
+
+    const userMsg = { role: 'user', content: input, timestamp: new Date() };
+    setMessages(prev => [...prev, userMsg]);
+    setInput('');
+    setIsTyping(true);
+
+    try {
+      const response = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ 
+          messages: [...messages, userMsg].map(m => ({ role: m.role, content: m.content })),
+          telemetry 
+        }),
+      });
+
+      const data = await response.json();
+
+      if (!response.ok) throw new Error('Error');
+
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: data.content,
+        timestamp: new Date()
+      }]);
+
+    } catch (error) {
+      setMessages(prev => [...prev, {
+        role: 'assistant',
+        content: "Error de conexión. Intenta de nuevo.",
+        timestamp: new Date()
+      }]);
+    } finally {
+      setIsTyping(false);
+    }
+  };
+
+  return (
+    <div className="flex flex-col h-full bg-slate-900/50 backdrop-blur-xl border border-cyan-500/10 rounded-3xl overflow-hidden">
+      <div className="bg-slate-900/40 border-b border-cyan-500/10 p-4 flex justify-between items-center">
+        <div className="flex items-center gap-2">
+          <Cpu size={18} className="text-cyan-400" />
+          <h3 className="text-white font-bold text-sm">Curie Intelligence</h3>
+        </div>
+        <div className="flex gap-2 text-xs">
+          <span className="text-rose-400">{telemetry.bpm} BPM</span>
+          <span className="text-emerald-400">{telemetry.weight} kg</span>
+        </div>
+      </div>
+
+      <div className="flex-1 overflow-y-auto p-4 space-y-4">
+        {messages.map((m, i) => (
+          <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+            <div className={`max-w-[80%] p-3 rounded-xl ${m.role === 'user' ? 'bg-cyan-600 text-white' : 'bg-slate-800 text-cyan-50'}`}>
+              <p className="text-sm">{m.content}</p>
+            </div>
+          </div>
+        ))}
+        {isTyping && <p className="text-xs text-cyan-500 animate-pulse">Escribiendo...</p>}
+        <div ref={scrollRef} />
+      </div>
+
+      <div className="p-4 bg-slate-900/40 border-t border-cyan-500/10 flex gap-2">
+        <input 
+          value={input}
+          onChange={(e) => setInput(e.target.value)}
+          onKeyDown={(e) => e.key === 'Enter' && sendMessage()}
+          placeholder="Escribe tu consulta..."
+          className="flex-1 bg-black/50 border border-slate-700 rounded-lg px-3 py-2 text-sm text-white"
+        />
+        <button onClick={sendMessage} className="bg-cyan-600 p-2 rounded-lg text-white hover:bg-cyan-500">
+          <Send size={18} />
+        </button>
+      </div>
+    </div>
+  );
 }
