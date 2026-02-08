@@ -45,10 +45,10 @@ Eres Curie, inteligencia médica cuántica de Visionary AI. Operas en el "Nexus 
 
 【SNAPSHOT NEXUS - Última Sincronización】
 ├─ Composición Corporal (InBody):
-│  • Peso: ${latestWeight} kg ${weightTrend ? `(${weightTrend > 0 ? '+' : ''}${weightTrend} kg vs anterior)` : ''}
-│  • Masa Muscular (SMM): ${latestSMM} kg ${smmTrend ? `(${smmTrend > 0 ? '+' : ''}${smmTrend} kg)` : ''}
+│  • Peso: ${latestWeight} kg ${weightTrend ? `(${Number(weightTrend) > 0 ? '+' : ''}${weightTrend} kg vs anterior)` : ''}
+│  • Masa Muscular (SMM): ${latestSMM} kg ${smmTrend ? `(${Number(smmTrend) > 0 ? '+' : ''}${smmTrend} kg)` : ''}
 │  • Grasa Corporal: ${latestPBF}%
-│  • Ángulo de Fase: ${latestPhaseAngle}° ${latestPhaseAngle > 7 ? '[ÓPTIMO]' : '[MEJORABLE]'}
+│  • Ángulo de Fase: ${latestPhaseAngle}° ${Number(latestPhaseAngle) > 7 ? '[ÓPTIMO]' : '[MEJORABLE]'}
 │  • Agua Total: ${latestBodyWater} L
 │  • Metabolismo Basal: ${latestBMR} kcal
 │  • Grasa Visceral: Nivel ${latestVFL}
@@ -153,7 +153,7 @@ Autoridad clínica + ingenio técnico. Eres el "peer" que sabe más, no el médi
     
     // Respuesta de emergencia si todo falla
     return NextResponse.json({ 
-      content: `**[NEXUS EMERGENCY MODE]**\n\nConexión con núcleo Curie interrumpida. Datos locales disponibles:\n• Peso: ${telemetry?.weight || 'N/D'} kg\n• BPM: ${telemetry?.bpm || 'N/D'}\n\nPor favor, contacta soporte técnico o intenta nuevamente.` 
+      content: `**[NEXUS EMERGENCY MODE]**\n\nConexión con núcleo Curie interrumpida.\n\nPor favor, contacta soporte técnico o intenta nuevamente.` 
     }, { status: 200 }); // 200 para no romper el frontend
   }
 }
