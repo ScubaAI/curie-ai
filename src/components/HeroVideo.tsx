@@ -53,14 +53,6 @@ export default function HeroVideo() {
               Open medical intelligence.
             </p>
 
-            <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-cyan-300 leading-tight">
-              Real-time biometrics.
-            </p>
-
-            <p className="text-2xl sm:text-3xl md:text-4xl lg:text-5xl font-light text-white leading-tight">
-              Endless knowledge.
-            </p>
-
             {/* Línea secundaria en español – sutil, para conexión emocional */}
             <p className="mt-8 md:mt-12 text-lg sm:text-xl md:text-2xl font-light text-cyan-400/80 tracking-wide uppercase">
               IA médica open source · Datos biométricos en tiempo real ·

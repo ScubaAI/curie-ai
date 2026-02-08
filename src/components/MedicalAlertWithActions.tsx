@@ -1,8 +1,9 @@
 /**
- * MedicalAlertWithActions – Versión Final Consolidada 2026
- * * Fusión de alerta clínica + acciones inmediatas + confianza IA.
- * Implementa: Framer Motion para fluidez, Lucide para iconografía, 
- * y Tailwind para el "Glow" neuro-estético.
+ * MedicalAlertWithActions – Nexus "Ready to Receive" Edition 2026
+ * * Cambios clave:
+ * 1. brandSource: Identifica la procedencia del dato (Garmin, Withings, etc.)
+ * 2. lastSync: Refuerza la confianza en el Live Link.
+ * 3. Dynamic Glow: El pulso visual se sincroniza con el origen del dato.
  */
 
 'use client';
@@ -11,13 +12,15 @@ import { ReactNode } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   AlertTriangle, CheckCircle, Info, XCircle,
-  HeartPulse, ShieldCheck, Zap, Activity, Phone
+  HeartPulse, ShieldCheck, Zap, Activity, Scale, Sparkles, Cpu
 } from 'lucide-react';
 
-// Tipos de alerta que definen el "Mood" emocional de Helena
+// Tipos de alerta para el Mood de Helena
 export type AlertType = 'success' | 'error' | 'warning' | 'info' | 'emergency';
 
-// Estructura de acción para los botones integrados
+// Marcas del ecosistema Visionary-Ready
+export type BrandSource = 'garmin' | 'withings' | 'crisalix' | 'inbody' | 'helena';
+
 export interface AlertAction {
   label: string;
   icon?: ReactNode;
@@ -30,14 +33,24 @@ interface MedicalAlertWithActionsProps {
   type: AlertType;
   title: string;
   description: string;
+  brandSource?: BrandSource; // Nuevo: Identificador de marca
+  lastSync?: string;         // Nuevo: Timestamp humano
   icon?: ReactNode;
   actions?: AlertAction[];
-  confidence?: number;        // Porcentaje de certeza de la IA (0 a 1)
+  confidence?: number;
   className?: string;
-  pulse?: boolean;            // Forzar pulso visual (automático en emergency)
+  pulse?: boolean;
 }
 
-// Configuración de estilos por tipo de alerta
+// Mapeo de identidad de marca (Ecosistema Ready)
+const brandIdentity = {
+  garmin: { icon: <Activity className="w-4 h-4" />, label: 'Garmin Connect', color: 'text-[#007CC3]' },
+  withings: { icon: <Zap className="w-4 h-4" />, label: 'Withings Health', color: 'text-slate-900' },
+  crisalix: { icon: <Sparkles className="w-4 h-4" />, label: 'Crisalix 3D', color: 'text-rose-500' },
+  inbody: { icon: <Scale className="w-4 h-4" />, label: 'InBody Composition', color: 'text-emerald-600' },
+  helena: { icon: <Cpu className="w-4 h-4" />, label: 'Helena AI Core', color: 'text-cyan-500' }
+};
+
 const alertStyles = {
   success: {
     bg: 'bg-gradient-to-br from-emerald-50/95 to-teal-50/80',
@@ -92,16 +105,18 @@ const alertStyles = {
 };
 
 const buttonVariants = {
-  primary: 'bg-gradient-to-r from-cyan-600 via-blue-600 to-cyan-700 hover:from-cyan-700 hover:via-blue-700 hover:to-cyan-800 text-white shadow-cyan-500/30 hover:shadow-cyan-500/50',
-  secondary: 'bg-white/90 backdrop-blur-md border-2 border-slate-200/80 text-slate-800 hover:border-cyan-400 hover:bg-cyan-50/90 hover:shadow-cyan-400/20',
-  danger: 'bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-700 hover:via-red-700 hover:to-rose-800 text-white shadow-rose-500/40 hover:shadow-rose-500/60',
-  ghost: 'bg-transparent border border-slate-200/50 text-slate-700 hover:bg-slate-100/80 hover:text-cyan-700'
+  primary: 'bg-gradient-to-r from-cyan-600 via-blue-600 to-cyan-700 hover:from-cyan-700 hover:via-blue-700 hover:to-cyan-800 text-white shadow-cyan-500/30',
+  secondary: 'bg-white/90 backdrop-blur-md border-2 border-slate-200/80 text-slate-800 hover:border-cyan-400',
+  danger: 'bg-gradient-to-r from-rose-600 via-red-600 to-rose-700 hover:from-rose-700 hover:via-red-700 text-white shadow-rose-500/40',
+  ghost: 'bg-transparent border border-slate-200/50 text-slate-700 hover:bg-slate-100/80'
 };
 
 export default function MedicalAlertWithActions({
   type = 'info',
   title,
   description,
+  brandSource,
+  lastSync,
   icon,
   actions = [],
   confidence,
@@ -109,51 +124,65 @@ export default function MedicalAlertWithActions({
   pulse = type === 'emergency' || type === 'warning'
 }: MedicalAlertWithActionsProps) {
   const styles = alertStyles[type];
+  const brand = brandSource ? brandIdentity[brandSource] : null;
 
   return (
     <motion.div
       initial={{ opacity: 0, y: 20, scale: 0.97 }}
       animate={{ opacity: 1, y: 0, scale: 1 }}
-      exit={{ opacity: 0, scale: 0.95 }}
-      transition={{ duration: 0.6, ease: "easeOut" }}
       className={`rounded-[2.5rem] border-2 p-8 backdrop-blur-2xl shadow-2xl relative overflow-hidden group ${styles.bg} ${styles.border} ${className}`}
-      role="alert"
     >
-      {/* 1. Capa de Resplandor (Glow) Perimetral */}
+      {/* 1. Glow Perimetral Reactivo */}
       <div 
-        className={`absolute -inset-24 bg-gradient-to-br ${styles.glow} blur-[100px] opacity-60 group-hover:opacity-100 transition-all duration-1000 ${pulse ? 'animate-pulse' : ''}`} 
+        className={`absolute -inset-24 bg-gradient-to-br ${styles.glow} blur-[100px] opacity-60 transition-all duration-1000 ${pulse ? 'animate-pulse' : ''}`} 
         style={{ pointerEvents: 'none' }}
       />
 
-      <div className="relative z-10 flex flex-col gap-8">
+      <div className="relative z-10 flex flex-col gap-6">
         
-        {/* 2. Cabecera Clínica: Icono + Títulos */}
+        {/* 2. Badge de Ecosistema "Ready" */}
+        {brand && (
+          <div className="flex items-center gap-2 mb-2">
+            <div className={`p-1.5 bg-white/60 rounded-lg border border-white/40 shadow-sm ${brand.color}`}>
+              {brand.icon}
+            </div>
+            <div className="flex flex-col">
+              <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-600 leading-none">
+                {brand.label} Sync Active
+              </span>
+              <span className="text-[8px] font-mono text-slate-400 uppercase tracking-widest mt-0.5">
+                Last Update: {lastSync || 'Real-time'}
+              </span>
+            </div>
+          </div>
+        )}
+
         <div className="flex flex-col md:flex-row items-start gap-6">
           <motion.div 
-            whileHover={{ scale: 1.1, rotate: 5 }}
+            whileHover={{ scale: 1.1 }}
             className={`flex-shrink-0 p-5 rounded-[1.5rem] ${styles.iconBg} border border-white/40 shadow-inner ${styles.icon}`}
           >
             {icon || styles.defaultIcon}
           </motion.div>
 
-          <div className="flex-1 space-y-3">
-            <h3 className={`text-2xl md:text-3xl font-extrabold tracking-tight leading-tight ${styles.title}`}>
+          <div className="flex-1 space-y-2">
+            <h3 className={`text-2xl md:text-3xl font-black tracking-tighter leading-tight uppercase italic ${styles.title}`}>
               {title}
             </h3>
             <p className={`text-base md:text-lg leading-relaxed font-light ${styles.desc}`}>
               {description}
             </p>
 
-            {/* 3. Indicador de Confianza IA (Si aplica) */}
+            {/* 3. Helena Reasoning Confidence */}
             {confidence !== undefined && (
-              <div className="mt-6 pt-4 border-t border-white/10">
-                <div className="flex justify-between text-xs font-bold uppercase tracking-widest text-slate-500 mb-2">
-                  <span>Helena Reasoning Confidence</span>
+              <div className="mt-6 pt-4 border-t border-black/5">
+                <div className="flex justify-between text-[10px] font-black uppercase tracking-widest text-slate-500 mb-2">
+                  <span>Helena Confidence Matrix</span>
                   <span className={confidence > 0.9 ? 'text-emerald-600' : 'text-amber-600'}>
                     {Math.round(confidence * 100)}%
                   </span>
                 </div>
-                <div className="h-2 bg-white/30 rounded-full overflow-hidden shadow-inner">
+                <div className="h-1.5 bg-black/5 rounded-full overflow-hidden">
                   <motion.div
                     initial={{ width: 0 }}
                     animate={{ width: `${confidence * 100}%` }}
@@ -166,20 +195,17 @@ export default function MedicalAlertWithActions({
           </div>
         </div>
 
-        {/* 4. Bloque de Acciones (Botones) */}
+        {/* 4. Bloque de Acciones */}
         {actions.length > 0 && (
-          <div className="flex flex-col sm:flex-row gap-4 pt-6 border-t border-white/20">
+          <div className="flex flex-col sm:flex-row gap-4 pt-4 border-t border-black/5">
             {actions.map((action, index) => (
               <motion.button
                 key={`${action.label}-${index}`}
                 onClick={action.onClick}
                 disabled={action.disabled}
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.3 + index * 0.1 }}
-                whileHover={{ scale: 1.03, y: -2 }}
-                whileTap={{ scale: 0.97 }}
-                className={`flex-1 flex items-center justify-center gap-3 px-8 py-5 rounded-2xl font-bold text-base shadow-xl transition-all duration-300 disabled:opacity-50 disabled:cursor-not-allowed focus:outline-none focus:ring-4 focus:ring-offset-2 ${buttonVariants[action.variant || 'secondary']}`}
+                whileHover={{ scale: 1.02 }}
+                whileTap={{ scale: 0.98 }}
+                className={`flex-1 flex items-center justify-center gap-3 px-8 py-5 rounded-2xl font-black uppercase italic tracking-tighter text-sm transition-all shadow-lg ${buttonVariants[action.variant || 'secondary']}`}
               >
                 {action.icon && <span className="w-5 h-5 opacity-90">{action.icon}</span>}
                 <span>{action.label}</span>
@@ -188,12 +214,6 @@ export default function MedicalAlertWithActions({
           </div>
         )}
       </div>
-
-      {/* 5. Marca de Agua de Seguridad sutil */}
-      <div className="absolute bottom-4 right-6 opacity-20 pointer-events-none">
-        <ShieldCheck className="w-6 h-6 text-slate-400" />
-      </div>
-
     </motion.div>
   );
 }

@@ -1,0 +1,109 @@
+generator client {
+  provider        = "prisma-client-js"
+  previewFeatures = ["driverAdapters"]
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+enum MetricType {
+  DEPTH
+  WATER_TEMPERATURE
+  DECO_STOP
+  HEART_RATE
+  SPO2
+  BLOOD_GLUCOSE
+}
+
+model Patient {
+  id                String              @id @default(cuid())
+  name              String
+  email             String              @unique
+  age               Int
+  height            Float
+  targetWeight      Float?
+  createdAt         DateTime            @default(now())
+  updatedAt         DateTime            @updatedAt
+  
+  compositions      CompositionRecord[]
+  biometrics        BiometricSnapshot[]
+  labResults        LabResult[]
+  metrics           MetricLog[]
+}
+
+model MetricLog {
+  id        String     @id @default(cuid())
+  patientId String
+  type      MetricType
+  value     Float
+  unit      String
+  metadata  Json?
+  createdAt DateTime   @default(now())
+
+  patient   Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, type, createdAt])
+}
+
+// COMPLETO: Ahora con todos los campos del InBody
+model CompositionRecord {
+  id              String   @id @default(cuid())
+  patientId       String
+  date            DateTime @default(now())
+  
+  // Composición básica
+  weight          Float
+  smm             Float    // Skeletal Muscle Mass
+  pbf             Float    // Percent Body Fat
+  bodyFatMass     Float
+  
+  // NUEVOS: Campos faltantes del InBody
+  totalBodyWater  Float?   // TBW en litros
+  protein         Float?   // Masa proteica en kg
+  minerals        Float?   // Masa mineral en kg
+  bmr             Int?     // Basal Metabolic Rate (kcal)
+  
+  // Métricas avanzadas
+  vfl             Int      // Visceral Fat Level
+  phaseAngle      Float
+  waistHipRatio   Float?   // 0.97 en tu foto
+  
+  source          String   @default("InBody270")
+  isLatest        Boolean  @default(false)
+  
+  patient         Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@index([patientId, isLatest])
+  @@index([patientId, date])
+}
+
+// MEJORADO: Ahora permite histórico, no solo snapshot único
+model BiometricSnapshot {
+  id          String   @id @default(cuid())
+  patientId   String   // Quitado @unique para permitir múltiples registros
+  bpm         Int
+  hrv         Int
+  spo2        Int
+  temp        Float?
+  status      String   @default("normal")
+  recordedAt  DateTime @default(now()) // Cuándo se midió
+  
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@index([patientId, recordedAt])
+}
+
+model LabResult {
+  id        String   @id @default(cuid())
+  patientId String
+  name      String
+  value     Float?
+  unit      String
+  date      DateTime @default(now())
+  patient   Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@index([patientId, date])
+}

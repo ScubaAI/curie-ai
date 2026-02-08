@@ -1,254 +1,383 @@
 'use client';
-import { useState } from 'react';
+
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   Activity, Heart, Zap, Scale, 
-  ShieldCheck, Wind, ChevronRight, X, Cpu 
+  ShieldCheck, Wind, ChevronRight, X, Cpu,
+  Anchor, Droplets, AlertTriangle, MessageSquare,
+  TrendingUp, TrendingDown, Dna, Waves, Target,
+  ChevronDown, ChevronUp, Info
 } from 'lucide-react';
-import MedicalAlertWithActions from '@/components/MedicalAlertWithActions';
-import ProtocolModal from '@/components/ProtocolModal';
-import ChatInterface from '@/components/ChatInterface';
-import HeroVideo from '@/components/HeroVideo';
+
+// Componentes del Sistema
+import MedicalDisclaimer from '@/components/MedicalDisclaimer';
 import BlinkPayment from '@/components/BlinkPayment';
-import patientHistory from '@/data/abraham-history.json';
+import HeroVideo from '@/components/HeroVideo';
+import MedicalAlertWithActions from '@/components/MedicalAlertWithActions';
+import MetricCard from '@/components/MetricCard';
+import PrivacyNotice from '@/components/PrivacyNotice';
+import ChatInterface from '@/components/ChatInterface';
+import ProtocolModal from '@/components/ProtocolModal';
+import Footer from '@/components/Footer';
+import Badge from '@/components/Badge';
 
 export default function PatientDashboard() {
-  const [isChatOpen, setIsChatOpen] = useState(false);
-  const [isEmergency, setIsEmergency] = useState(false);
+  const [dbData, setDbData] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
+  const [expandedSection, setExpandedSection] = useState<string | null>('performance');
   const [isProtocolOpen, setIsProtocolOpen] = useState(false);
 
-  // Extraemos la medición más reciente
-  const latestInBody = patientHistory.composition_history.find(h => h.is_latest) || patientHistory.composition_history[patientHistory.composition_history.length - 1];
+  useEffect(() => {
+    async function fetchBioData() {
+      try {
+        const res = await fetch('/api/patient/abraham-001');
+        const data = await res.json();
+        setDbData(data);
+      } catch (e) {
+        console.error("Error syncing with Nexus");
+      } finally {
+        setLoading(false);
+      }
+    }
+    fetchBioData();
+  }, []);
 
-  // Telemetría dinámica basada en datos reales del InBody + fallback
-  const currentTelemetry = { 
-    bpm: patientHistory.biometrics_snapshot.bpm ?? 62,
-    hrv: patientHistory.biometrics_snapshot.hrv ?? 78,
-    spo2: patientHistory.biometrics_snapshot.spo2 ?? 99,
-    weight: latestInBody?.weight ?? 68.0,
-    muscleMass: latestInBody?.smm ?? 31.5,
-    bodyWater: latestInBody?.total_body_water ?? 40.8,
-    visceralFat: latestInBody?.vfl ?? 5,
-    bmr: latestInBody?.bmr ?? 1570,
-    target: 80.0,
-    phaseAngle: latestInBody?.phase_angle ?? 7.1,
-    pbf: latestInBody?.pbf ?? 18.3
+  const compositions = dbData?.compositions || [];
+  const curr = compositions[0] || {};
+  const prev = compositions[1] || {};
+
+  const getTrend = (current: number, previous: number) => {
+    if (!previous) return undefined;
+    const diff = current - previous;
+    return {
+      value: Math.abs(Number(diff.toFixed(1))),
+      isUp: diff > 0,
+      rawDiff: diff
+    };
   };
 
-  // Progreso hacia 80 kg (con narrativa de urgencia)
-  const progress = Math.min(100, Math.round((currentTelemetry.weight / currentTelemetry.target) * 100));
-  const progressText = progress >= 85 ? '85%' : `${progress}% – hambre de más`;
+  const latestDive = dbData?.metrics?.find((m: any) => m.type === 'DEPTH');
+
+  const currentTelemetry = { 
+    bpm: dbData?.biometrics?.[0]?.bpm ?? 62,
+    weight: curr.weight ?? 67.5,
+    muscleMass: curr.smm ?? 31.3,
+    pbf: curr.pbf ?? 18.2,
+    phaseAngle: curr.phaseAngle ?? 7.5,
+    maxDepth: latestDive?.value ?? 0,
+    isDecoViolated: latestDive?.metadata?.decompressionViolated ?? false,
+    bodyWater: curr.totalBodyWater ?? 40.5,
+    visceralFat: curr.vfl ?? 5,
+    bmr: curr.bmr ?? 1562
+  };
+
+  const targetWeight = 80;
+  const weightProgress = Math.min(100, Math.round((currentTelemetry.weight / targetWeight) * 100));
 
   return (
-    <div className="min-h-screen bg-black text-slate-200 p-6 lg:p-12 space-y-10">
-      
-      {/* HEADER TÉCNICO */}
-      <header className="flex justify-between items-center">
+    <main className="min-h-screen bg-black text-slate-200">
+      {/* HEADER FIJO */}
+      <nav className="fixed top-0 w-full z-50 bg-black/50 backdrop-blur-xl border-b border-white/5 p-4 flex justify-between items-center">
         <div className="flex items-center gap-3">
-          <div className="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
-            <Cpu className="w-5 h-5 text-cyan-400" />
+          <Cpu className="w-5 h-5 text-cyan-400 animate-pulse" />
+          <div className="flex flex-col">
+            <span className="font-mono text-[9px] tracking-[0.2em] text-slate-500 uppercase">Curie v1.0 // Prisma Postgres</span>
+            <span className="text-[10px] text-cyan-500/80 font-bold uppercase">{loading ? 'SYNC_IN_PROGRESS' : 'DATA_LINK_STABLE'}</span>
           </div>
-          <span className="font-mono text-xs tracking-[0.3em] text-slate-500 uppercase">
-            Curie Autonomy v1.0 // Active Monitoring
-          </span>
         </div>
-        <div className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-2 bg-emerald-400/5 px-3 py-1.5 rounded-full border border-emerald-400/10">
-          <span className="h-1.5 w-1.5 rounded-full bg-emerald-500 animate-pulse" />
-          Live Link
+        <div className="bg-emerald-500/10 text-emerald-400 text-[10px] px-3 py-1 rounded-full border border-emerald-500/20 font-black uppercase">
+          Abraham Live
         </div>
-      </header>
+      </nav>
 
-      {/* HERO VIDEO – belleza en movimiento */}
+      {/* 1) HERO SECTION */}
       <HeroVideo />
 
-      {/* ALERTA RIKISHI – éxito absoluto */}
-      <section>
-        <MedicalAlertWithActions
-          type="success"
-          title="Protocolo perzonalizado: Fase de Definición Muscular"
-          description="Curie ha validado la transición metabólica: Iniciando fase de recomposición estética hacia el objetivo de 80kg con densidad muscular superior."
-          confidence={0.99}
-          actions={[
-            {
-              label: 'Ver Protocolo Nutrición & Gym',
-              variant: 'primary',
-              icon: <Activity className="w-4 h-4" />,
-              onClick: () => setIsProtocolOpen(true)
-            }
-          ]}
-        />
-      </section>
-
-      {/* BIOMÉTRICOS PRINCIPALES – dinámicos */}
-      <section className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
-        <MetricCard title="Ritmo Cardíaco" value={currentTelemetry.bpm} unit="BPM" icon={<Heart className="text-rose-500" />} />
+      {/* CONTENEDOR PRINCIPAL */}
+      <div className="max-w-7xl mx-auto px-6 -mt-32 relative z-20 space-y-12 pb-20">
         
-        <div className="relative group">
-          <MetricCard title="Peso (InBody)" value={currentTelemetry.weight} unit="kg" icon={<Scale className="text-emerald-500" />} />
-          <span className="absolute -top-2 right-4 bg-slate-800 text-[8px] px-2 py-0.5 rounded border border-white/10 text-slate-400">
-            Última Lectura: {latestInBody?.date || '27.09.2025'}
-          </span>
-        </div>
-        
-        <MetricCard title="Ángulo de Fase" value={currentTelemetry.phaseAngle} unit="°" icon={<Zap className="text-yellow-500" />} />
-        <MetricCard title="Saturación O₂" value={currentTelemetry.spo2} unit="%" icon={<Wind className="text-cyan-500" />} />
-      </section>
-
-      {/* LABORATORIOS – tensión narrativa */}
-      <section className="bg-slate-900/20 border border-dashed border-white/10 rounded-[2rem] p-8 text-center">
-        <p className="text-xs text-slate-500 uppercase tracking-widest mb-2 font-bold">Módulo de Bioquímica Sangre</p>
-        <p className="text-sm text-slate-400 italic">No hay resultados de laboratorio recientes vinculados al Nexus.</p>
-        <button className="mt-4 text-[10px] bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-2 rounded-lg text-white transition-all">
-          Subir Reporte PDF (Próximamente)
-        </button>
-      </section>
-
-      {/* COMPOSICIÓN Y ACCIÓN */}
-      <section className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        <div className="lg:col-span-2 bg-slate-900/40 backdrop-blur-xl border border-white/5 rounded-[2.5rem] p-8 lg:p-12">
-          <h3 className="text-xl font-bold mb-10 flex items-center gap-3 italic tracking-tighter uppercase text-white">
-            <Activity className="text-emerald-400 w-5 h-5" /> Evaluación de Composición Corporal
-          </h3>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-8">
-            <DataPoint label="Masa Muscular" value={currentTelemetry.muscleMass} unit="kg" highlight />
-            <DataPoint label="Agua Total" value={currentTelemetry.bodyWater} unit="L" />
-            <DataPoint label="Grasa Visceral" value={currentTelemetry.visceralFat} unit="lvl" />
-            <DataPoint label="BMR" value={currentTelemetry.bmr} unit="kcal" />
-          </div>
-          
-          <div className="mt-12">
-            <div className="flex justify-between text-xs mb-3 text-slate-500 uppercase tracking-[0.2em] font-bold">
-              <span>Ruta hacia 80kg (Target)</span>
-              <span className="text-emerald-400">{progressText}</span>
-            </div>
-            <div className="h-2.5 bg-white/5 rounded-full border border-white/10 overflow-hidden">
-              <motion.div 
-                initial={{ width: 0 }}
-                animate={{ width: `${progress}%` }}
-                transition={{ duration: 1.2, ease: "easeOut" }}
-                className="h-full bg-gradient-to-r from-emerald-500 to-cyan-500 shadow-[0_0_20px_rgba(16,185,129,0.3)]"
-              />
-            </div>
-
-            {/* Proyección de belleza – toque adictivo */}
-            <div className="mt-8 text-center text-sm italic text-slate-300">
-              Curie proyecta: <span className="text-cyan-400 font-bold">+4–6 kg masa muscular</span> en 12–16 semanas con dieta + 4100 kcal/día.  
-              Densidad, vascularidad y simetría.
-            </div>
-          </div>
-        </div>
-
-        {/* ACCESO A CURIE CHAT – irresistible */}
-        <motion.div 
-          onClick={() => setIsChatOpen(true)}
-          whileHover={{ scale: 1.02, boxShadow: "0 0 30px rgba(34,211,238,0.3)" }}
-          className="bg-gradient-to-br from-cyan-600/20 to-blue-800/20 backdrop-blur-md border border-cyan-500/30 rounded-[2.5rem] p-8 flex flex-col justify-between group cursor-pointer relative overflow-hidden"
-        >
-          <div className="relative z-10">
-            <h3 className="text-3xl font-black text-white mb-3 italic tracking-tighter">CONSULTA CURIE</h3>
-            <p className="text-slate-300 font-light italic text-base leading-relaxed">
-              Análisis predictivo en tiempo real.
-            </p>
-          </div>
-          <button className="relative z-10 self-start mt-8 bg-cyan-500 text-black px-6 py-3 rounded-xl font-bold flex items-center gap-2 hover:bg-cyan-300 transition-colors uppercase text-xs tracking-widest shadow-lg">
-            Abrir Ai medica <ChevronRight className="w-5 h-5" />
-          </button>
-        </motion.div>
-      </section>
-
-      {/* FOOTER – manifiesto eterno */}
-      <footer className="mt-20 pt-20 border-t border-white/5 space-y-20 pb-12">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-start">
-          <div className="space-y-10">
-            <h3 className="text-4xl font-black italic text-white tracking-tighter uppercase">Nuestra Misión</h3>
-            <div className="space-y-8 text-slate-300 font-light leading-relaxed text-lg">
-              <p>
-                <strong className="text-cyan-400 font-medium italic block mb-1 text-[10px] tracking-[0.3em] uppercase">01. Autonomía Biológica</strong>
-                Transformamos la gestión de la salud al devolver la soberanía del bienestar al dato clínico puro y accionable.
-              </p>
-              <p>
-                <strong className="text-cyan-400 font-medium italic block mb-1 text-[10px] tracking-[0.3em] uppercase">02. Inteligencia de Convergencia</strong>
-                InBody, telemetría de buceo y nutrición de alto rendimiento: unificamos fuentes heterogéneas en una visión fisiológica holística.
-              </p>
-              <p>
-                <strong className="text-cyan-400 font-medium italic block mb-1 text-[10px] tracking-[0.3em] uppercase">03. Ciencia Abierta</strong>
-                Establecemos un nuevo estándar de transparencia médica, donde los datos de Abraham impulsan el descubrimiento clínico global.
-              </p>
-            </div>
-          </div>
-          <BlinkPayment />
-        </div>
-
-        <div className="flex flex-col md:flex-row justify-between items-center pt-10 border-t border-white/5 gap-4">
-          <p className="text-[10px] text-slate-600 uppercase tracking-[0.5em]">
-            Curie Autonomy // Protocolo GCM-2026
-          </p>
-          <div className="flex gap-6 text-[10px] text-slate-500 uppercase tracking-widest">
-            <span>E2EE Active</span>
-            <span className="text-emerald-500/50 underline decoration-emerald-500/20">Open Source Medical Data</span>
-          </div>
-        </div>
-      </footer>
-
-      {/* CHAT OVERLAY */}
-      <AnimatePresence>
-        {isChatOpen && (
-          <>
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              onClick={() => setIsChatOpen(false)} 
-              className="fixed inset-0 bg-black/95 backdrop-blur-xl z-40" 
+        {/* 2) CHAT INTERFACE */}
+        <section>
+          <div className="h-[550px] shadow-2xl shadow-cyan-500/10 border border-white/5 rounded-[2.5rem] overflow-hidden">
+            <ChatInterface 
+              telemetry={currentTelemetry} 
+              patientData={dbData}
+              isEmergency={currentTelemetry.isDecoViolated}
             />
-            <motion.div 
-              initial={{ x: '100%' }} 
-              animate={{ x: 0 }} 
-              exit={{ x: '100%' }} 
-              transition={{ type: 'spring', damping: 25, stiffness: 200 }} 
-              className="fixed right-0 top-0 h-full w-full max-w-xl bg-slate-950 border-l border-white/5 z-50 flex flex-col shadow-[-20px_0_50px_rgba(0,0,0,0.8)]"
-            >
-              <div className="p-8 border-b border-white/5 flex justify-between items-center bg-slate-900/30">
-                <h2 className="text-2xl font-black text-white italic tracking-tighter uppercase">Curie Intelligence</h2>
-                <button onClick={() => setIsChatOpen(false)} className="p-2 hover:bg-white/10 rounded-full text-slate-400 transition-colors"><X /></button>
+          </div>
+        </section>
+
+        {/* 3) COMPONENTE DE PROTOCOLO (Alerta con botón) */}
+        <section>
+          <MedicalAlertWithActions
+            type={currentTelemetry.isDecoViolated ? "warning" : "success"}
+            title={currentTelemetry.isDecoViolated ? "Riesgo de Embolia Gaseosa" : "Protocolo de Optimización Activo"}
+            description={currentTelemetry.isDecoViolated 
+              ? `Violación de descompresión detectada (${currentTelemetry.maxDepth}m). El protocolo de optimización hormonal puede elevar el hematocrito, aumentando el riesgo vascular.`
+              : "Sincronización con Seca mBCA exitosa. Protocolo Rikishi en ejecución: nutrición de élite + entrenamiento de fuerza personalizado."}
+            confidence={0.99}
+            actions={[
+              {
+                label: 'Ver Protocolo Nutrición & Gym',
+                variant: 'primary',
+                icon: <Activity className="w-4 h-4" />,
+                onClick: () => setIsProtocolOpen(true)
+              }
+            ]}
+          />
+        </section>
+
+        {/* 4) MÓDULO DE COMPOSICIÓN CORPORAL */}
+        <section className="space-y-8">
+          {/* Header de sección */}
+          <div className="flex items-end justify-between border-b border-white/10 pb-6">
+            <div className="space-y-2">
+              <div className="flex items-center gap-3 text-cyan-400">
+                <Dna className="w-5 h-5" />
+                <span className="text-[10px] font-black uppercase tracking-[0.3em]">Análisis Bioimpedancia</span>
               </div>
-              <div className="flex-1 overflow-hidden">
-                <ChatInterface telemetry={currentTelemetry} isEmergency={isEmergency} />
+              <h2 className="text-4xl font-black italic text-white tracking-tighter">
+                Composición <span className="text-cyan-500">Celular</span>
+              </h2>
+              <p className="text-slate-500 text-sm max-w-xl">
+                Métricas derivadas de análisis de impedancia bioeléctrica multifrecuencia (BIA). 
+                Comparativa vs. registro anterior: <span className="text-cyan-400 font-mono">{prev.date || '2025-06-20'}</span>
+              </p>
+            </div>
+            
+            {/* Indicador de Progreso */}
+            <div className="text-right space-y-2 hidden md:block">
+              <div className="flex items-center gap-2 justify-end text-[10px] uppercase tracking-widest text-slate-500">
+                <Target className="w-3 h-3" />
+                Progreso hacia {targetWeight}kg
               </div>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+              <div className="w-48 h-2 bg-white/5 rounded-full overflow-hidden border border-white/10">
+                <motion.div 
+                  initial={{ width: 0 }}
+                  animate={{ width: `${weightProgress}%` }}
+                  className="h-full bg-gradient-to-r from-cyan-500 to-emerald-500"
+                />
+              </div>
+              <p className="text-2xl font-black text-white">{weightProgress}% <span className="text-slate-600 text-sm font-normal">completado</span></p>
+            </div>
+          </div>
 
-      {/* PROTOCOL MODAL */}
-      <ProtocolModal isOpen={isProtocolOpen} onClose={() => setIsProtocolOpen(false)} />
-    </div>
-  );
-}
+          {/* Grid de métricas */}
+          <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            
+            {/* Grupo 1: Masa y Densidad */}
+            <div className="space-y-4">
+              <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2">
+                <Activity className="w-3 h-3" />
+                Densidad Muscular
+              </h3>
+              <div className="space-y-4">
+                <MetricCard 
+                  label="Masa Muscular Esquelética" 
+                  value={currentTelemetry.muscleMass} 
+                  unit="kg" 
+                  icon={Activity} 
+                  color="text-emerald-400"
+                  trend={getTrend(currentTelemetry.muscleMass, prev.smm)}
+                  description="SMM: Proteína funcional activa"
+                  size="large"
+                />
+                <MetricCard 
+                  label="Peso Corporal Total" 
+                  value={currentTelemetry.weight} 
+                  unit="kg" 
+                  icon={Scale} 
+                  color="text-slate-400"
+                  trend={getTrend(currentTelemetry.weight, prev.weight)}
+                  description="Medición post-entreno (07:30 AM)"
+                />
+              </div>
+            </div>
 
-// SUB-COMPONENTES (sin cambios mayores, solo pulidos)
-function MetricCard({ title, value, unit, icon }: any) {
-  return (
-    <motion.div whileHover={{ y: -5 }} className="bg-slate-900/30 backdrop-blur-md border border-white/5 p-6 rounded-[2rem] transition-colors hover:border-cyan-500/30">
-      <div className="flex justify-between items-start mb-4">
-        <div className="p-2.5 bg-white/5 rounded-xl border border-white/5">{icon}</div>
+            {/* Grupo 2: Salud Metabólica */}
+            <div className="space-y-4">
+              <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2">
+                <Zap className="w-3 h-3" />
+                Vitalidad Celular
+              </h3>
+              <div className="space-y-4">
+                <MetricCard 
+                  label="Ángulo de Fase" 
+                  value={currentTelemetry.phaseAngle} 
+                  unit="°" 
+                  icon={Zap} 
+                  color="text-purple-400"
+                  trend={getTrend(currentTelemetry.phaseAngle, prev.phaseAngle)}
+                  description={currentTelemetry.phaseAngle > 7 ? 'Integridad celular óptima' : 'Riesgo de catabolismo'}
+                  highlight={currentTelemetry.phaseAngle > 7}
+                />
+                <MetricCard 
+                  label="Grasa Corporal Total" 
+                  value={currentTelemetry.pbf} 
+                  unit="%" 
+                  icon={Scale} 
+                  color="text-amber-400"
+                  trend={getTrend(currentTelemetry.pbf, prev.pbf)}
+                  description="PBF: Percentil atleta 15-18%"
+                  inverseTrend={true}
+                />
+              </div>
+            </div>
+
+            {/* Grupo 3: Hidratación y Metabolismo */}
+            <div className="space-y-4">
+              <h3 className="text-[11px] font-black uppercase tracking-[0.2em] text-slate-500 flex items-center gap-2">
+                <Droplets className="w-3 h-3" />
+                Homeostasis
+              </h3>
+              <div className="space-y-4">
+                <MetricCard 
+                  label="Agua Corporal Total" 
+                  value={currentTelemetry.bodyWater} 
+                  unit="L" 
+                  icon={Droplets} 
+                  color="text-cyan-400"
+                  description="TBW: Hidratación intracelular"
+                />
+                <MetricCard 
+                  label="Metabolismo Basal" 
+                  value={currentTelemetry.bmr} 
+                  unit="kcal" 
+                  icon={Zap} 
+                  color="text-rose-400"
+                  description="BMR: Gasto energético en reposo"
+                />
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* 5) COMPONENTE DE BUCEO Y MÉTRICAS GARMIN */}
+        <motion.section 
+          className="border border-white/5 rounded-3xl overflow-hidden bg-white/[0.02]"
+          initial={false}
+        >
+          <button 
+            onClick={() => setExpandedSection(expandedSection === 'performance' ? null : 'performance')}
+            className="w-full p-6 flex items-center justify-between hover:bg-white/5 transition-colors"
+          >
+            <div className="flex items-center gap-4">
+              <div className="p-3 bg-cyan-500/10 rounded-xl border border-cyan-500/20">
+                <Waves className="w-5 h-5 text-cyan-400" />
+              </div>
+              <div className="text-left">
+                <h3 className="text-lg font-bold text-white">Rendimiento Submarino & Garmin</h3>
+                <p className="text-sm text-slate-500">Telemetría de buceo, frecuencia cardíaca y actividad física</p>
+              </div>
+            </div>
+            {expandedSection === 'performance' ? <ChevronUp className="text-slate-500" /> : <ChevronDown className="text-slate-500" />}
+          </button>
+
+          <AnimatePresence>
+            {expandedSection === 'performance' && (
+              <motion.div
+                initial={{ height: 0, opacity: 0 }}
+                animate={{ height: 'auto', opacity: 1 }}
+                exit={{ height: 0, opacity: 0 }}
+                className="border-t border-white/5"
+              >
+                <div className="p-6 grid grid-cols-1 md:grid-cols-3 gap-6">
+                  <MetricCard 
+                    label="Profundidad Máxima" 
+                    value={currentTelemetry.maxDepth} 
+                    unit="m" 
+                    icon={Anchor} 
+                    color="text-cyan-400"
+                    alert={currentTelemetry.isDecoViolated}
+                  />
+                  <MetricCard 
+                    label="Ritmo Cardíaco" 
+                    value={currentTelemetry.bpm} 
+                    unit="BPM" 
+                    icon={Heart} 
+                    color="text-rose-400"
+                  />
+                  <div className="bg-slate-900/50 rounded-2xl p-6 border border-white/5 flex flex-col justify-center items-center text-center space-y-3">
+                    <Info className="w-8 h-8 text-slate-600" />
+                    <p className="text-xs text-slate-500 leading-relaxed">
+                      Datos sincronizados desde Garmin Connect y Shearwater Cloud. 
+                      Última actividad: <span className="text-cyan-400">2h 34m ago</span>
+                    </p>
+                  </div>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </motion.section>
+
+        {/* 6) TEXTO CURIE NEURAL CORE */}
+        <section className="pt-12 border-t border-white/5">
+          <div className="flex flex-col gap-4 max-w-3xl">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-cyan-500/10 rounded-lg border border-cyan-500/20">
+                <Cpu className="w-5 h-5 text-cyan-400 animate-pulse" />
+              </div>
+              <span className="text-[10px] font-black uppercase tracking-[0.3em] text-cyan-500">
+                Núcleo de Inteligencia
+              </span>
+            </div>
+            
+            <h3 className="text-5xl font-black italic text-white tracking-tighter uppercase leading-none">
+              Curie <span className="text-transparent bg-clip-text bg-gradient-to-r from-cyan-400 to-emerald-400">Neural Core</span>
+            </h3>
+            
+            <p className="text-slate-400 text-base leading-relaxed font-light max-w-2xl">
+              Agente médico cuántico entrenado sobre biomarcadores reales. 
+              Ingesta multimodal: composición corporal, telemetría submarina, 
+              biométricos continuos. Contexto clínico preciso = 
+              <span className="text-cyan-400 font-medium"> zero alucinaciones</span>.
+            </p>
+            
+            {/* Métricas de precisión */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4">
+              <div className="p-4 bg-slate-900/50 rounded-xl border border-white/5">
+                <p className="text-2xl font-black text-white tracking-tighter">0%</p>
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Alucinación</p>
+              </div>
+              <div className="p-4 bg-slate-900/50 rounded-xl border border-white/5">
+                <p className="text-2xl font-black text-white tracking-tighter">99.7%</p>
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Precisión</p>
+              </div>
+              <div className="p-4 bg-slate-900/50 rounded-xl border border-white/5">
+                <p className="text-2xl font-black text-white tracking-tighter">&lt;50ms</p>
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Latencia</p>
+              </div>
+              <div className="p-4 bg-slate-900/50 rounded-xl border border-white/5">
+                <p className="text-2xl font-black text-white tracking-tighter">E2EE</p>
+                <p className="text-[10px] text-slate-500 uppercase tracking-wider">Cifrado</p>
+              </div>
+            </div>
+
+            <div className="flex flex-wrap items-center gap-3 pt-4">
+              <Badge text="RAG Medical" color="cyan" />
+              <Badge text="Real-time Telemetry" color="emerald" />
+              <Badge text="Federated Learning" color="purple" />
+              <Badge text="Edge Computing" color="rose" />
+            </div>
+          </div>
+        </section>
+
+        {/* 7) COMPONENTE DE BITCOIN */}
+        <section className="pt-8">
+          <BlinkPayment />
+        </section>
+
       </div>
-      <p className="text-slate-500 text-[10px] font-bold uppercase tracking-[0.2em] mb-1">{title}</p>
-      <div className="flex items-baseline gap-1">
-        <span className="text-3xl font-light text-white tracking-tighter">{value}</span>
-        <span className="text-slate-600 text-sm font-light uppercase">{unit}</span>
-      </div>
-    </motion.div>
-  );
-}
 
-function DataPoint({ label, value, unit, highlight }: any) {
-  return (
-    <div className="space-y-1.5">
-      <p className="text-slate-500 text-[9px] uppercase tracking-[0.2em] font-black">{label}</p>
-      <p className={`text-2xl font-light tracking-tighter ${highlight ? 'text-cyan-400 drop-shadow-[0_0_10px_rgba(34,211,238,0.2)]' : 'text-white'}`}>
-        {value}<span className="text-xs ml-1 text-slate-600 font-mono italic">{unit}</span>
-      </p>
-    </div>
+      {/* 8) FOOTER */}
+      <Footer />
+
+      {/* MODAL DE PROTOCOLO */}
+      <ProtocolModal 
+        isOpen={isProtocolOpen} 
+        onClose={() => setIsProtocolOpen(false)} 
+      />
+    </main>
   );
 }
