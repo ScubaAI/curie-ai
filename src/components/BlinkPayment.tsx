@@ -1,34 +1,61 @@
+// BlinkPayment.tsx - versión corregida
 'use client';
 
 import { QRCodeSVG } from 'qrcode.react'; 
-import { Zap, ShieldCheck, ExternalLink, Copy, Bitcoin, Check } from 'lucide-react';
-import { useState, useEffect, useCallback } from 'react';
+import { Zap, ShieldCheck, ExternalLink, Copy, Bitcoin, Check, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
 
 export default function BlinkPayment() {
   const lnAddress = "curie@blink.sv";
   const [copied, setCopied] = useState(false);
+  const [invoice, setInvoice] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
   const [weeklySats, setWeeklySats] = useState(0);
-  const [isMobile, setIsMobile] = useState(false);
-  const [qrSize, setQrSize] = useState(200);
   const serverGoal = 5000000;
 
-  // Detectar mobile UNA VEZ (no en cada render)
+  // Generar invoice al montar
   useEffect(() => {
-    setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+    async function generateInvoice() {
+      try {
+        const res = await fetch('/api/blink/invoice', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            amountSats: 21000, // 21k sats por defecto (~$10-15)
+            memo: 'Donación a Curie Intelligence - Medicina descentralizada'
+          }),
+        });
+        
+        const data = await res.json();
+        if (data.invoice) {
+          setInvoice(data.invoice);
+        }
+      } catch (e) {
+        console.error("Invoice generation failed:", e);
+      } finally {
+        setLoading(false);
+      }
+    }
+
+    generateInvoice();
     
-    // QR responsive
-    const handleResize = () => {
-      setQrSize(window.innerWidth < 640 ? 160 : 200);
-    };
-    handleResize(); // Ejecutar inmediatamente
-    
-    window.addEventListener('resize', handleResize);
-    return () => window.removeEventListener('resize', handleResize);
+    // Stats de balance (igual que antes)
+    async function syncBlink() {
+      try {
+        const res = await fetch('/api/blink/stats');
+        const data = await res.json();
+        setWeeklySats(data.balance);
+      } catch (e) {
+        console.error("Blink sync failed:", e);
+      }
+    }
+    syncBlink();
   }, []);
 
   const copyToClipboard = async () => {
+    const textToCopy = invoice || lnAddress;
     try {
-      await navigator.clipboard.writeText(lnAddress);
+      await navigator.clipboard.writeText(textToCopy);
       setCopied(true);
       setTimeout(() => setCopied(false), 2000);
     } catch (err) {
@@ -36,36 +63,10 @@ export default function BlinkPayment() {
     }
   };
 
-  // SIMPLIFICADO: Solo una llamada inicial, sin polling agresivo
-  // La API ya tiene caché de 60s, el frontend no necesita más
-  useEffect(() => {
-    let mounted = true;
-    
-    async function syncBlink() {
-      try {
-        const res = await fetch('/api/blink/stats');
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const data = await res.json();
-        if (mounted) setWeeklySats(data.balance);
-      } catch (e) {
-        console.error("Blink sync failed:", e);
-      }
-    }
-
-    syncBlink(); // Carga inicial
-    
-    // Polling suave: cada 5 minutos (no cada 60 segundos)
-    // La API ya cachea 60s, esto es solo para UI fresca
-    const interval = setInterval(syncBlink, 5 * 60 * 1000);
-    
-    return () => {
-      mounted = false;
-      clearInterval(interval);
-    };
-  }, []); // ← Array vacío = solo al montar
-
-  const qrValue = `lightning:${lnAddress}`;
-  const paymentHref = isMobile ? `lightning:${lnAddress}` : `https://blink.sv/${lnAddress}`;
+  const regenerateInvoice = () => {
+    setLoading(true);
+    window.location.reload(); // Simple reload para nuevo invoice
+  };
 
   return (
     <section className="bg-gradient-to-br from-slate-950 via-black to-slate-950 border border-cyan-500/10 rounded-3xl p-8 lg:p-10 relative overflow-hidden group backdrop-blur-xl shadow-2xl">
@@ -89,17 +90,34 @@ export default function BlinkPayment() {
           </div>
         </div>
 
-        {/* QR Code - ahora con tamaño controlado por estado */}
+        {/* QR Code - AHORA CON INVOICE REAL */}
         <div className="relative mb-10 p-8 bg-gradient-to-br from-slate-900 to-black rounded-3xl border border-cyan-500/15 shadow-[0_0_50px_rgba(6,182,212,0.12),inset_0_0_20px_rgba(255,165,0,0.04)]">
-          <QRCodeSVG 
-            value={qrValue} 
-            size={qrSize}
-            level="H"
-            fgColor="#00f0ff"
-            bgColor="transparent"
-            includeMargin={false}
-          />
+          {loading ? (
+            <div className="w-[200px] h-[200px] flex items-center justify-center">
+              <RefreshCw className="w-8 h-8 text-cyan-400 animate-spin" />
+            </div>
+          ) : invoice ? (
+            <QRCodeSVG 
+              value={invoice}  // ← INVOICE REAL AQUÍ
+              size={200}
+              level="H"
+              fgColor="#00f0ff"
+              bgColor="transparent"
+              includeMargin={false}
+            />
+          ) : (
+            <div className="w-[200px] h-[200px] flex items-center justify-center text-slate-500 text-sm">
+              Error al generar invoice
+            </div>
+          )}
           <div className="absolute inset-0 rounded-3xl border-2 border-transparent bg-gradient-to-r from-cyan-500/10 via-transparent to-orange-500/10 pointer-events-none" />
+          
+          {/* Badge de monto */}
+          {!loading && invoice && (
+            <div className="absolute -bottom-3 left-1/2 -translate-x-1/2 bg-cyan-500 text-black text-[10px] font-black px-3 py-1 rounded-full uppercase tracking-wider">
+              21,000 sats
+            </div>
+          )}
         </div>
 
         {/* Texto */}
@@ -130,19 +148,32 @@ export default function BlinkPayment() {
         <div className="w-full max-w-sm space-y-5">
           <button 
             onClick={copyToClipboard}
-            className="w-full flex items-center justify-between py-4 px-6 bg-black/60 rounded-2xl border border-cyan-500/20 hover:border-cyan-400/40 hover:bg-black/80 transition-all group shadow-inner"
+            disabled={!invoice}
+            className="w-full flex items-center justify-between py-4 px-6 bg-black/60 rounded-2xl border border-cyan-500/20 hover:border-cyan-400/40 hover:bg-black/80 transition-all group shadow-inner disabled:opacity-50"
           >
-            <span className="text-sm font-mono text-cyan-200 tracking-tight">{lnAddress}</span>
+            <span className="text-sm font-mono text-cyan-200 tracking-tight truncate max-w-[200px]">
+              {invoice ? `${invoice.substring(0, 20)}...` : 'Generando...'}
+            </span>
             {copied ? <Check size={18} className="text-emerald-400" /> : <Copy size={18} className="text-cyan-500/70 group-hover:text-cyan-300 transition-colors" />}
           </button>
 
-          <a 
-            href={paymentHref}
-            className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-gradient-to-r from-cyan-600/80 to-orange-600/80 hover:from-cyan-500 hover:to-orange-500 text-black font-bold rounded-2xl transition-all shadow-[0_0_30px_rgba(6,182,212,0.4)] hover:shadow-[0_0_50px_rgba(249,115,22,0.5)] uppercase tracking-wider text-sm"
-          >
-            <Zap size={18} className="fill-black/30" />
-            Enviar Sats
-          </a>
+          <div className="flex gap-3">
+            <a 
+              href={`lightning:${invoice || lnAddress}`}
+              className="flex-1 flex items-center justify-center gap-3 py-4 px-6 bg-gradient-to-r from-cyan-600/80 to-orange-600/80 hover:from-cyan-500 hover:to-orange-500 text-black font-bold rounded-2xl transition-all shadow-[0_0_30px_rgba(6,182,212,0.4)] hover:shadow-[0_0_50px_rgba(249,115,22,0.5)] uppercase tracking-wider text-sm disabled:opacity-50"
+            >
+              <Zap size={18} className="fill-black/30" />
+              Abrir Wallet
+            </a>
+            
+            <button
+              onClick={regenerateInvoice}
+              className="p-4 bg-slate-800/50 rounded-2xl border border-white/10 hover:bg-slate-700/50 transition-colors"
+              title="Generar nuevo invoice"
+            >
+              <RefreshCw size={18} className="text-slate-400" />
+            </button>
+          </div>
 
           <div className="flex items-center justify-between pt-6 text-xs text-slate-500 uppercase tracking-widest font-medium border-t border-cyan-500/10">
             <div className="flex items-center gap-2">

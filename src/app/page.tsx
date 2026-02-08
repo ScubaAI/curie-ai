@@ -138,7 +138,7 @@ export default function PatientDashboard() {
                 <span className="text-[10px] font-black uppercase tracking-[0.3em]">Análisis Bioimpedancia</span>
               </div>
               <h2 className="text-4xl font-black italic text-white tracking-tighter">
-                Composición <span className="text-cyan-500">Celular</span>
+                Composición <span className="text-cyan-500">Corporal</span>
               </h2>
               <p className="text-slate-500 text-sm max-w-xl">
                 Métricas derivadas de análisis de impedancia bioeléctrica multifrecuencia (BIA). 

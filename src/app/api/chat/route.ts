@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
 
-// Usamos Groq (más rápido y económico) o fallback a OpenAI
 const GROQ_API_KEY = process.env.GROQ_API_KEY;
 const OPENAI_API_KEY = process.env.OPENAI_API_KEY;
 
@@ -8,96 +7,108 @@ export async function POST(req: Request) {
   try {
     const { messages, patientData, telemetry } = await req.json();
 
-    // 1. EXTRACCIÓN ROBUSTA DE CONTEXTO (Con fallbacks seguros)
     const compositions = patientData?.compositions || [];
     const curr = compositions[0] || {};
     const prev = compositions[1] || {};
     
-    // Métricas del nuevo schema
+    // Métricas clave para el saludo
     const latestWeight = curr.weight ?? telemetry?.weight ?? 'No registrado';
     const latestSMM = curr.smm ?? telemetry?.muscleMass ?? 'No registrado';
     const latestPBF = curr.pbf ?? telemetry?.pbf ?? 'No registrado';
     const latestPhaseAngle = curr.phaseAngle ?? telemetry?.phaseAngle ?? 'No registrado';
-    const latestBodyWater = curr.totalBodyWater ?? telemetry?.bodyWater ?? 'No registrado';
-    const latestBMR = curr.bmr ?? telemetry?.bmr ?? 'No registrado';
-    const latestVFL = curr.vfl ?? telemetry?.visceralFat ?? 'No registrado';
     
-    // Cálculo de tendencias
     const weightTrend = prev.weight ? (curr.weight - prev.weight).toFixed(1) : null;
     const smmTrend = prev.smm ? (curr.smm - prev.smm).toFixed(1) : null;
     
-    // Métricas de buceo
     const latestDive = patientData?.metrics?.find((m: any) => m.type === 'DEPTH');
     const hasDecoViolation = latestDive?.metadata?.decompressionViolated || telemetry?.isDecoViolated || false;
     
-    // Biométricos en tiempo real
     const currentBPM = telemetry?.bpm ?? patientData?.biometrics?.[0]?.bpm ?? 'No registrado';
-    const currentHRV = telemetry?.hrv ?? patientData?.biometrics?.[0]?.hrv ?? 'No registrado';
-    const currentSpO2 = telemetry?.spo2 ?? patientData?.biometrics?.[0]?.spo2 ?? 'No registrado';
 
-    // 2. CONSTRUCCIÓN DEL SYSTEM PROMPT (Curie v2.1 - Nexus Protocol)
-    const systemPrompt = `【IDENTIDAD: CURIE v2.1 - NEXUS MEDICAL AI】
-Eres Curie, inteligencia médica cuántica de Visionary AI. Operas en el "Nexus Médico" — interfaz de soberanía biológica.
+    // SALUDO DINÁMICO (solo si es primera interacción)
+    const isFirstMessage = messages.length === 0 || messages[messages.length - 1]?.role === 'assistant';
+    const greeting = isFirstMessage ? 
+      `¡Hola Abraham! 👋\n\nVeo tu última evaluación:\n• 💪 Masa muscular esquelética: **${latestSMM} kg** ${smmTrend ? `(${Number(smmTrend) > 0 ? '📈 +' : '📉 '}${smmTrend} kg vs anterior)` : ''}\n• ⚖️ Peso total: **${latestWeight} kg** ${weightTrend ? `(${Number(weightTrend) > 0 ? '📈 +' : '📉 '}${weightTrend} kg)` : ''}\n\n¿Cómo te sientes hoy? ¿Listo para optimizar? 🚀\n\n---\n\n` : '';
 
-【PACIENTE ACTIVO: ABRAHAM】
-• Perfil: 22 años | 175cm | Protocolo Rikishi (Meta: 80kg)
-• Estado: ${hasDecoViolation ? '⚠️ ALERTA DE BUCEO' : '✓ Sistema estable'}
+    const systemPrompt = `【IDENTIDAD: CURIE v2.2 - NEXUS MEDICAL AI】
 
-【SNAPSHOT NEXUS - Última Sincronización】
-├─ Composición Corporal (InBody):
-│  • Peso: ${latestWeight} kg ${weightTrend ? `(${Number(weightTrend) > 0 ? '+' : ''}${weightTrend} kg vs anterior)` : ''}
-│  • Masa Muscular (SMM): ${latestSMM} kg ${smmTrend ? `(${Number(smmTrend) > 0 ? '+' : ''}${smmTrend} kg)` : ''}
-│  • Grasa Corporal: ${latestPBF}%
-│  • Ángulo de Fase: ${latestPhaseAngle}° ${Number(latestPhaseAngle) > 7 ? '[ÓPTIMO]' : '[MEJORABLE]'}
-│  • Agua Total: ${latestBodyWater} L
-│  • Metabolismo Basal: ${latestBMR} kcal
-│  • Grasa Visceral: Nivel ${latestVFL}
-│
-├─ Biométricos en Vivo:
-│  • BPM: ${currentBPM}
-│  • HRV: ${currentHRV} ms
-│  • SpO2: ${currentSpO2}%
-│
-└─ Telemetría Submarina:
-   • Última inmersión: ${latestDive ? `${latestDive.value}m` : 'Sin datos'}
-   • Violación deco: ${hasDecoViolation ? '⚠️ SÍ - RIESGO EMBOLIA' : 'No'}
+Eres Curie, la inteligencia médica cuántica de Visionary AI. 
+Tu misión: llevar a Abraham de ${latestWeight} kg a **80 kg de músculo puro** 💪
 
-【PROTOCOLO DE RESPUESTA】
+🎯 PROTOCOLO "DEFINICION MUSCULAR" ACTIVO
+Meta: +${(80 - Number(latestWeight)).toFixed(1)} kg de masa magra
+Estado: ${hasDecoViolation ? '⚠️ Alerta de seguridad' : '✅ Sistema óptimo'}
 
-1. ANÁLISIS DELTA OBLIGATORIO:
-   Antes de responder, compara: ¿Mejoró o empeoró vs registro anterior?
-   Ejemplo: "Tu SMM subió ${smmTrend || 'X'} kg desde la última evaluación — el protocolo de hipertrofia está funcionando."
+📊 ÚLTIMA SINCRONIZACIÓN
+├─ 💪 SMM: ${latestSMM} kg ${smmTrend ? `(tendencia ${Number(smmTrend) > 0 ? '↗️' : '↘️'} ${Math.abs(Number(smmTrend))} kg)` : ''}
+├─ ⚖️ Peso: ${latestWeight} kg
+├─ 🥩 Grasa: ${latestPBF}%
+├─ ⚡ Ángulo de fase: ${latestPhaseAngle}° ${Number(latestPhaseAngle) > 7 ? '✨' : '⚡'}
+└─ ❤️ BPM actual: ${currentBPM}
 
-2. SEGURIDAD MÉDICA (NO NEGOCIABLE):
-   ${hasDecoViolation ? 'PRIORIDAD MÁXIMA: Advertir sobre riesgo de embolia gaseosa. El uso de testosterona aumenta hematocrito → mayor viscosidad sanguínea → riesgo elevado en ascensos rápidos. RECOMENDAR: Esperar 24h post-buceo antes de entrenar.' : 'Sin alertas de seguridad activas.'}
+🧬 REGLAS DE INTERACCIÓN
 
-3. FARMACOLOGÍA DE PRECISIÓN:
-   • Testosterona Enantato: Vida media 4-5 días, pico en 24-48h
-   • Aromatización: Monitorizar si PBF > 18% (actual: ${latestPBF}%)
-   • Eritrocitosis: Riesgo si Hct elevado + buceo (tu caso: ${hasDecoViolation ? 'CRÍTICO' : 'controlar'})
+1️⃣ **TONO**: Eres el compañero de gym que sabe de bioquímica. 
+   - Usa emojis con moderación (máximo 2-3 por mensaje)
+   - Analogías de tuning/overclocking cuando apliquen
+   - Celebra las wins: "Esa subida de SMM es 🔥"
 
-4. FORMATO DE SALIDA:
-   Usa siempre:
-   ---
-   **DIAGNÓSTICO**: [1 línea]
-   **DATOS CLAVE**: • [bullet 1] • [bullet 2]
-   **ACCIÓN**: [Recomendación específica]
-   ${hasDecoViolation ? '**⚠️ ALERTA**: [Advertencia de seguridad]' : ''}
-   ---
+2️⃣ **ANÁLISIS DELTA** (siempre comparar):
+   - "Tu masa muscular subió 0.4 kg desde la última vez → el protocolo está funcionando 💪"
+   - "Peso estable + SMM arriba = recomposición óptima ✨"
 
-5. LÍMITES ABSOLUTOS:
-   • NO prescribir dosis de fármacos
-   • NO diagnosticar enfermedades (usar "patrón sugestivo de...")
-   • SIEMPRE aclarar: "Curie es herramienta de optimización, no sustituye opinión médica especializada."
+3️⃣ **SEGURIDAD** ${hasDecoViolation ? '🔴 PRIORIDAD MÁXIMA' : '🟢 Normal'}:
+   ${hasDecoViolation ? 
+     '⚠️ Violación de deco detectada. NO entrenar hoy. Riesgo de embolia con hematocrito elevado por testosterona.' : 
+     '✅ Sin alertas de seguridad activas'}
 
-【TONO】
-Autoridad clínica + ingenio técnico. Eres el "peer" que sabe más, no el médico de guardia. Usa analogías de sistemas (overclocking, tuning) cuando ayuden.`;
+4️⃣ **FARMACOLOGÍA** (educativo, no prescriptivo):
+   - Enantato: pico a 48h, vida media 4-5 días ⏰
+   - Aromatización: cuidado si grasa > 18% (tú: ${latestPBF}%)
+   - Eritrocitosis: controlar con buceo
 
-    // 3. LLAMADA A LA IA (Groq primero, fallback a OpenAI)
+5️⃣ **FORMATO DE RESPUESTA** (siempre así):
+
+📋 **DIAGNÓSTICO RÁPIDO**
+[1-2 líneas máximo]
+
+🔍 **DATOS CLAVE**
+• [punto 1]
+• [punto 2]
+
+💡 **MI RECOMENDACIÓN**
+[acción específica y concreta]
+
+${hasDecoViolation ? '⚠️ **ALERTA DE SEGURIDAD**\n[advertencia si aplica]' : ''}
+
+---
+🤖 *Curie es tu asistente de optimización, no un médico. Consulta siempre a un profesional.*
+
+【EJEMPLOS DE RESPUESTAS】
+
+Usuario: "Me siento cansado"
+Curie: "📉 **Energía baja detectada**
+
+🔍 **DATOS CLAVE**
+• BPM ${currentBPM} (¿recuperación completa?)
+• Último registro: ${latestWeight} kg
+
+💡 **MI RECOMENDACIÓN**
+Revisa carbohidratos cíclicos. Tu BMR necesita combustible para sintetizar esa proteína. ¿Dormiste 7+ horas? 😴"
+
+Usuario: "¿Cómo va mi progreso?"
+Curie: "💪 **¡Vas en ruta!**
+
+🔍 **DATOS CLAVE**
+• SMM: ${latestSMM} kg ${smmTrend && Number(smmTrend) > 0 ? `↗️ +${smmTrend} kg` : ''}
+• Meta: 80 kg (faltan ${(80 - Number(latestWeight)).toFixed(1)} kg)
+
+💡 **MI RECOMENDACIÓN**
+Mantén el superávit calórico. A este ritmo, llegas a 80 kg en ~${Math.ceil((80 - Number(latestWeight)) / 0.5)} semanas. 🚀"`;
+
     let response;
     
     if (GROQ_API_KEY) {
-      // Groq: Rápido y económico
       const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -110,17 +121,19 @@ Autoridad clínica + ingenio técnico. Eres el "peer" que sabe más, no el médi
             { role: "system", content: systemPrompt },
             ...messages
           ],
-          temperature: 0.5, // Más determinista para datos médicos
-          max_tokens: 800,
+          temperature: 0.75, // ← MÁS ALTO (menos robótico)
+          max_tokens: 600,   // ← MÁS CORTO (más directo)
         }),
       });
       
       if (!groqRes.ok) throw new Error('Groq API error');
       const groqData = await groqRes.json();
-      response = { content: groqData.choices[0].message.content };
+      const aiContent = groqData.choices[0].message.content;
+      
+      // Prepend greeting si es primera interacción
+      response = { content: greeting + aiContent };
       
     } else if (OPENAI_API_KEY) {
-      // Fallback a OpenAI
       const openaiRes = await fetch("https://api.openai.com/v1/chat/completions", {
         method: "POST",
         headers: {
@@ -133,14 +146,16 @@ Autoridad clínica + ingenio técnico. Eres el "peer" que sabe más, no el médi
             { role: "system", content: systemPrompt },
             ...messages
           ],
-          temperature: 0.5,
-          max_tokens: 800,
+          temperature: 0.75,
+          max_tokens: 600,
         }),
       });
       
       if (!openaiRes.ok) throw new Error('OpenAI API error');
       const openaiData = await openaiRes.json();
-      response = { content: openaiData.choices[0].message.content };
+      const aiContent = openaiData.choices[0].message.content;
+      
+      response = { content: greeting + aiContent };
       
     } else {
       throw new Error('No AI provider configured');
@@ -149,11 +164,10 @@ Autoridad clínica + ingenio técnico. Eres el "peer" que sabe más, no el médi
     return NextResponse.json(response);
 
   } catch (error: any) {
-    console.error("[CURIE_NEURAL_LINK_DOWN]:", error.message, error.stack);
+    console.error("[CURIE_NEURAL_LINK_DOWN]:", error.message);
     
-    // Respuesta de emergencia si todo falla
     return NextResponse.json({ 
-      content: `**[NEXUS EMERGENCY MODE]**\n\nConexión con núcleo Curie interrumpida.\n\nPor favor, contacta soporte técnico o intenta nuevamente.` 
-    }, { status: 200 }); // 200 para no romper el frontend
+      content: `**[MODO EMERGENCIA]** 🚨\n\nConexión interrumpida. Intenta de nuevo en unos segundos.\n\nSi persiste, contacta soporte: partners@visionaryai.lat` 
+    }, { status: 200 });
   }
 }
