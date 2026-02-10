@@ -22,65 +22,8 @@ import ProtocolModal from '@/components/ProtocolModal';
 import Footer from '@/components/Footer';
 import Badge from '@/components/Badge';
 
-// Tipos para mejor type safety
-interface CompositionData {
-  weight: number;
-  smm: number; // Skeletal Muscle Mass
-  pbf: number; // Percent Body Fat
-  phaseAngle: number;
-  totalBodyWater: number;
-  vfl: number; // Visceral Fat Level
-  bmr: number; // Basal Metabolic Rate
-  date?: Date;
-  source?: string;
-}
-
-interface DiveMetric {
-  type: string;
-  value: number;
-  timestamp?: Date;
-  metadata?: {
-    decompressionViolated?: boolean;
-    device?: string;
-  };
-}
-
-interface BiometricData {
-  bpm: number;
-  timestamp?: Date;
-  source?: string;
-}
-
-interface PatientData {
-  id: string;
-  name: string;
-  email: string;
-  compositions: CompositionData[];
-  metrics?: DiveMetric[];
-  biometrics?: BiometricData[];
-  lastChatAt?: Date;
-  lastProcessedAt?: Date;
-}
-
-interface TelemetryData {
-  bpm: number;
-  weight: number;
-  muscleMass: number;
-  pbf: number;
-  phaseAngle: number;
-  maxDepth: number;
-  isDecoViolated: boolean;
-  bodyWater: number;
-  visceralFat: number;
-  bmr: number;
-}
-
-interface ChatEvent {
-  type: string;
-  severity: 'CRITICAL' | 'WARNING' | 'INFO';
-  title: string;
-  description: string;
-}
+// Shared types for better type safety
+import { CompositionData, DiveMetric, BiometricData, PatientData, TelemetryData, ChatEvent } from '@/types/shared';
 
 export default function PatientDashboard() {
   const [dbData, setDbData] = useState<PatientData | null>(null);

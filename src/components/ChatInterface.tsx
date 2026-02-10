@@ -19,64 +19,8 @@ import {
   CheckCircle2
 } from 'lucide-react';
 
-// Tipos alineados con page.tsx y route.ts
-interface CompositionData {
-  weight: number;
-  smm: number;
-  pbf: number;
-  phaseAngle: number;
-  totalBodyWater: number;
-  vfl: number;
-  bmr: number;
-  date?: string;
-  source?: string;
-}
-
-interface DiveMetric {
-  type: string;
-  value: number;
-  timestamp?: string;
-  metadata?: {
-    decompressionViolated?: boolean;
-    device?: string;
-  };
-}
-
-interface BiometricData {
-  bpm: number;
-  timestamp?: string;
-  source?: string;
-}
-
-interface PatientData {
-  id: string;
-  name: string;
-  compositions: CompositionData[];
-  metrics?: DiveMetric[];
-  biometrics?: BiometricData[];
-  lastChatAt?: Date;
-  lastProcessedTimestamp?: string;
-}
-
-interface TelemetryData {
-  bpm: number;
-  weight: number;
-  muscleMass: number;
-  pbf: number;
-  phaseAngle: number;
-  maxDepth: number;
-  isDecoViolated: boolean;
-  bodyWater: number;
-  visceralFat: number;
-  bmr: number;
-}
-
-interface ChatEvent {
-  type: string;
-  severity: 'CRITICAL' | 'WARNING' | 'INFO';
-  title: string;
-  description: string;
-}
+// Shared types for consistency
+import { CompositionData, DiveMetric, BiometricData, PatientData, TelemetryData, ChatEvent } from '@/types/shared';
 
 interface ChatMessage {
   role: 'user' | 'assistant' | 'system';
