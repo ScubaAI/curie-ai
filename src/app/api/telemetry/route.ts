@@ -284,7 +284,7 @@ export async function POST(req: Request) {
           const diveMetrics = [
             {
               patientId: patient.id,
-              type: MetricType.DEPTH,
+              type: MetricType.DEPTH as MetricType,
               value: validated.maxDepth,
               unit: 'meters',
               startedAt: recordedAt,
@@ -297,7 +297,7 @@ export async function POST(req: Request) {
                 diveNumber: validated.diveNumber,
                 waterTemp: validated.waterTemp
               },
-              location: validated.location || null,
+              location: validated.location,
               source: validated.source,
               deviceId: validated.deviceId || deviceId,
               isProcessed: false,
@@ -305,13 +305,14 @@ export async function POST(req: Request) {
             },
             {
               patientId: patient.id,
-              type: MetricType.DIVE_TIME,
+              type: MetricType.DIVE_TIME as MetricType,
               value: validated.duration,
               unit: 'seconds',
               startedAt: recordedAt,
               endedAt: new Date(recordedAt.getTime() + validated.duration * 1000),
               duration: validated.duration,
               metadata: { diveNumber: validated.diveNumber },
+              location: validated.location,
               source: validated.source,
               deviceId: validated.deviceId || deviceId,
               isProcessed: false,
@@ -322,13 +323,14 @@ export async function POST(req: Request) {
           if (validated.waterTemp) {
             diveMetrics.push({
               patientId: patient.id,
-              type: MetricType.WATER_TEMPERATURE,
+              type: MetricType.WATER_TEMPERATURE as MetricType,
               value: validated.waterTemp,
               unit: 'celsius',
               startedAt: recordedAt,
               endedAt: new Date(recordedAt.getTime() + validated.duration * 1000),
               duration: validated.duration,
               metadata: { diveNumber: validated.diveNumber },
+              location: validated.location,
               source: validated.source,
               deviceId: validated.deviceId || deviceId,
               isProcessed: false,
