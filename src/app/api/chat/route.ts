@@ -96,6 +96,8 @@ const DATA_SOURCE_PRIORITY: Record<DataSource, number> = {
   [DataSource.IMPORT_CSV]: 0.40,
   [DataSource.API_INTEGRATION]: 0.60,
   [DataSource.LAB_ANALYSIS]: 0.95,
+  [DataSource.WITHINGS_B2B]: 0.65,
+  [DataSource.WITHINGS_API]: 0.60,
 };
 
 // Detectar eventos nuevos que requieren atención

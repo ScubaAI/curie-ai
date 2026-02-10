@@ -245,7 +245,19 @@ export async function POST(req: Request) {
           const record = await tx.compositionRecord.create({
             data: {
               patientId: patient.id,
-              ...validated,
+              weight: validated.weight,
+              smm: validated.smm,
+              pbf: validated.pbf,
+              bodyFatMass: validated.bodyFatMass,
+              totalBodyWater: validated.totalBodyWater ?? 0,
+              protein: validated.protein ?? 0,
+              minerals: validated.minerals ?? 0,
+              bmr: validated.bmr ?? 0,
+              vfl: validated.vfl,
+              phaseAngle: validated.phaseAngle,
+              waistHipRatio: validated.waistHipRatio,
+              source: validated.source ?? DataSource.MANUAL_ENTRY,
+              notes: validated.notes,
               date: recordedAt,
               isLatest: true
             }

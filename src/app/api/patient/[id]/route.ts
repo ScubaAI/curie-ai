@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
 import { PrismaClient, MetricType, DataSource, ActivityLevel } from '@prisma/client';
+import { JsonValue } from '@prisma/client/runtime/library';
 
 const prisma = new PrismaClient();
 
@@ -60,8 +61,8 @@ interface DiveMetric {
   startedAt: Date;
   endedAt: Date | null;
   duration: number | null;
-  metadata: Record<string, any> | null;
-  location: Record<string, any> | null;
+  metadata: JsonValue | null;
+  location: JsonValue | null;
   source: DataSource;
   deviceId: string | null;
   isProcessed: boolean;
@@ -102,16 +103,19 @@ interface PatientResponse {
 }
 
 // Mapeo de confianza por fuente de composición
-const getCompositionConfidence = (source: DataSource | null): 'HIGH' | 'MEDIUM' | 'LOW' => {
-  if (!source) return 'LOW';
-  if ([DataSource.INBODY_970, DataSource.INBODY_770, DataSource.LAB_ANALYSIS].includes(source)) {
-    return 'HIGH';
-  }
-  if ([DataSource.INBODY_270, DataSource.BIA_MULTIFRECUENCIA, DataSource.BIA_SEGMENTAL].includes(source)) {
-    return 'MEDIUM';
-  }
-  return 'LOW';
-};
+const HIGH_CONFIDENCE_SOURCES: DataSource[] = [DataSource.INBODY_970, DataSource.INBODY_770, DataSource.LAB_ANALYSIS];
+  const MEDIUM_CONFIDENCE_SOURCES: DataSource[] = [DataSource.INBODY_270, DataSource.BIA_MULTIFRECUENCIA, DataSource.BIA_SEGMENTAL];
+
+  const getCompositionConfidence = (source: DataSource | null): 'HIGH' | 'MEDIUM' | 'LOW' => {
+    if (!source) return 'LOW';
+    if (HIGH_CONFIDENCE_SOURCES.includes(source)) {
+      return 'HIGH';
+    }
+    if (MEDIUM_CONFIDENCE_SOURCES.includes(source)) {
+      return 'MEDIUM';
+    }
+    return 'LOW';
+  };
 
 export async function GET(
   request: Request,

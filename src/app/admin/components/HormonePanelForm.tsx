@@ -47,7 +47,9 @@ const REFERENCE_RANGES = {
   prolactin: { min: 4, max: 15, unit: "ng/mL", normal: "4-15" },
   cortisol: { min: 6, max: 23, unit: "mcg/dL", normal: "6-23 (AM)" },
   dheaS: { min: 280, max: 640, unit: "mcg/dL", normal: "280-640" },
-};
+} as const;
+
+type HormoneField = keyof typeof REFERENCE_RANGES;
 
 export function HormonePanelForm({ onSubmit, initialData, onCancel }: HormonePanelFormProps) {
   const [formData, setFormData] = useState<HormonePanelFormData>({
@@ -135,7 +137,7 @@ export function HormonePanelForm({ onSubmit, initialData, onCancel }: HormonePan
   const labelClasses = "block text-sm font-medium text-slate-300 mb-2";
   const errorClasses = "text-red-400 text-sm mt-1";
 
-  const renderReferenceBadge = (name: keyof typeof REFERENCE_RANGES) => {
+  const renderReferenceBadge = (name: HormoneField) => {
     const range = REFERENCE_RANGES[name];
     return (
       <span className="inline-block px-2 py-1 bg-slate-700/50 rounded text-xs text-cyan-400 ml-2">
@@ -145,7 +147,7 @@ export function HormonePanelForm({ onSubmit, initialData, onCancel }: HormonePan
   };
 
   const renderField = (
-    name: keyof HormonePanelFormData,
+    name: HormoneField,
     label: string,
     unit: string,
     step: string = "1",
@@ -276,5 +278,3 @@ export function HormonePanelForm({ onSubmit, initialData, onCancel }: HormonePan
     </form>
   );
 }
-
-export type { HormonePanelFormData };

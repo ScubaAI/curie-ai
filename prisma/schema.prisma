@@ -169,6 +169,7 @@ model Patient {
   compositions      CompositionRecord[]
   biometrics        BiometricSnapshot[]
   labResults        LabResult[]
+  prescriptions     Prescription[]
   metrics           MetricLog[]
   chatSessions      ChatSession[]
   systemEvents      SystemEvent[]
@@ -339,6 +340,38 @@ model LabResult {
   @@index([patientId, date(sort: Desc)])
   @@index([patientId, category])
   @@index([flagged])
+}
+
+// ============================================================================>
+// MODELO DE RECETAS MÉDICAS
+// ============================================================================
+
+model Prescription {
+  id          String   @id @default(cuid())
+  patientId   String
+  
+  // Información del medicamento
+  medication  String
+  dosage      String
+  frequency   String
+  
+  // Prescripción
+  prescribedBy String
+  prescribedAt DateTime @default(now())
+  validUntil   DateTime?
+  
+  // Notas adicionales
+  notes       String?
+  isActive    Boolean  @default(true)
+  
+  // Vinculación a documento
+  documentUrl String?
+  
+  // Relación
+  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  
+  @@index([patientId])
+  @@index([patientId, isActive])
 }
 
 // ============================================================================

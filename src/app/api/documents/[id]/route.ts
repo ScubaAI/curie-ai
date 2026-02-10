@@ -219,9 +219,9 @@ export async function POST(request: Request) {
 }
 
 // Helper para versionado automático
-async function getNextVersion(patientId: string, type: string): Promise<string> {
+async function getNextVersion(patientId: string, type: DocumentType): Promise<string> {
   const latest = await prisma.protocolDocument.findFirst({
-    where: { patientId, type },
+    where: { patientId, type: type as DocumentType },
     orderBy: { createdAt: 'desc' },
     select: { version: true }
   });

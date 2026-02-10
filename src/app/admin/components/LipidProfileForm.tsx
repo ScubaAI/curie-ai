@@ -136,10 +136,10 @@ export function LipidProfileForm({ onSubmit, initialData, onCancel }: LipidProfi
       <div className="bg-slate-800/50 rounded-lg p-4 mb-6 border border-slate-700">
         <h3 className="text-sm font-medium text-cyan-400 mb-2">Reference Ranges</h3>
         <div className="grid grid-cols-2 md:grid-cols-4 gap-2 text-xs text-slate-400">
-          <span>Total Cholesterol: <200 mg/dL</span>
-          <span>LDL: <100 mg/dL</span>
-          <span>HDL: >40 mg/dL</span>
-          <span>Triglycerides: <150 mg/dL</span>
+          <span>Total Cholesterol: &lt;200 mg/dL</span>
+          <span>LDL: &lt;100 mg/dL</span>
+          <span>HDL: &gt;40 mg/dL</span>
+          <span>Triglycerides: &lt;150 mg/dL</span>
         </div>
       </div>
 
@@ -374,5 +374,3 @@ export function LipidProfileForm({ onSubmit, initialData, onCancel }: LipidProfi
     </form>
   );
 }
-
-export type { LipidProfileFormData };
