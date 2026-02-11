@@ -7,7 +7,7 @@ import {
   ShieldCheck, Wind, ChevronRight, X, Cpu,
   Anchor, Droplets, AlertTriangle, MessageSquare,
   TrendingUp, TrendingDown, Dna, Waves, Target,
-  ChevronDown, ChevronUp, Info, Bitcoin
+  ChevronDown, ChevronUp, Info, Bitcoin, Calendar
 } from 'lucide-react';
 
 // Componentes del Sistema
@@ -21,6 +21,7 @@ import ChatInterface from '@/components/ChatInterface';
 import ProtocolModal from '@/components/ProtocolModal';
 import Footer from '@/components/Footer';
 import Badge from '@/components/Badge';
+import CalScheduling from '@/components/CalScheduling';
 
 // Shared types for better type safety
 import { CompositionData, DiveMetric, BiometricData, PatientData, TelemetryData, ChatEvent } from '@/types/shared';
@@ -522,7 +523,18 @@ export default function PatientDashboard() {
           </div>
         </section>
 
-        {/* 7) COMPONENTE DE BITCOIN */}
+        {/* 7) COMPONENTE DE AGENDAMIENTO */}
+        <section className="pt-8">
+          <div className="flex items-center gap-2 mb-4">
+            <Calendar className="w-4 h-4 text-cyan-400" />
+            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-500">
+              Agendamiento de Citas
+            </span>
+          </div>
+          <CalScheduling calUsername="tu-usuario-cal" eventType="consulta-medica" />
+        </section>
+
+        {/* 8) COMPONENTE DE BITCOIN */}
         <section className="pt-8">
           <div className="flex items-center gap-2 mb-4">
             <Bitcoin className="w-4 h-4 text-amber-400" />

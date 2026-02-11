@@ -136,6 +136,7 @@ model Patient {
   withingsToken     String?
   withingsRefresh   String?
   withingsExpires   DateTime?
+  withingsConnectedAt DateTime?
   
   // Relaciones
   compositions      CompositionRecord[]
@@ -173,6 +174,7 @@ model CompositionRecord {
   trunkMuscle     Float?
   rightLegMuscle  Float?
   leftLegMuscle   Float?
+  // @default(WITHINGS_API) when data comes from Withings Body Scan
   source          DataSource @default(INBODY_270)
   deviceId        String?
   isLatest        Boolean    @default(false)

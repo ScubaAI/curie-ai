@@ -1,207 +1,126 @@
 import { NextResponse } from 'next/server';
-import { PrismaClient, DataSource, EventType, EventSeverity } from '@prisma/client';
-import { z } from 'zod';
-
-const prisma = new PrismaClient();
-
-// Schema de notificación de Withings
-const WithingsNotificationSchema = z.object({
-  userid: z.string(),           // ID de Withings (mapeado a nuestro patient)
-  startdate: z.number(),        // Timestamp UNIX
-  enddate: z.number(),
-  deviceid: z.string().optional(),
-  appliver: z.string().optional(),
-  // Datos de medición (varían según tipo de dispositivo)
-  measures: z.array(z.object({
-    type: z.number(),           // Código de medición (ver tabla abajo)
-    unit: z.number(),           // Exponente de unidad (ej: -3 = gramos)
-    value: z.number(),          // Valor raw
-  })).optional(),
-});
-
-// Mapeo de códigos de medición Withings → nuestros campos
-const WITHINGS_MEASURE_MAP: Record<number, { field: string; unit: string; divisor: number }> = {
-  1:   { field: 'weight', unit: 'kg', divisor: 1000 },        // Peso (g → kg)
-  5:   { field: 'fatFreeMass', unit: 'kg', divisor: 1000 },   // Masa libre de grasa
-  6:   { field: 'fatRatio', unit: '%', divisor: 1000 },       // % grasa corporal
-  8:   { field: 'fatMassWeight', unit: 'kg', divisor: 1000 }, // Peso grasa
-  76:  { field: 'muscleMass', unit: 'kg', divisor: 1000 },    // Masa muscular (¡clave!)
-  77:  { field: 'hydration', unit: 'kg', divisor: 1000 },     // Hidratación
-  88:  { field: 'boneMass', unit: 'kg', divisor: 1000 },      // Masa ósea
-  91:  { field: 'pulseWaveVelocity', unit: 'm/s', divisor: 1000 }, // PWV
-};
+import { prisma } from '@/lib/prisma';
+import { decryptToken } from '@/lib/crypto';
+import { DataSource } from '@prisma/client';
 
 export async function POST(request: Request) {
-  const requestId = crypto.randomUUID();
-  
   try {
-    // 1. Verificar firma del webhook (seguridad)
-    const signature = request.headers.get('x-withings-signature');
-    const body = await request.text();
-    
-    // TODO: Verificar HMAC-SHA256 con WITHINGS_CLIENT_SECRET
-    // const isValid = verifyWithingsSignature(body, signature);
-    // if (!isValid) return NextResponse.json({ error: 'INVALID_SIGNATURE' }, { status: 401 });
+    const payload = await request.json();
+    const { userid } = payload;
 
-    // 2. Parsear datos
-    const data = JSON.parse(body);
-    const notification = WithingsNotificationSchema.parse(data);
+    if (!userid) {
+      return NextResponse.json({ error: 'Missing userid' }, { status: 400 });
+    }
 
-    // 3. Mapear userid de Withings → nuestro patientId
-    // TODO: Tabla de mapeo o campo withingsUserId en Patient
-    const withingsUserId = notification.userid;
+    console.log(`[WITHINGS_WEBHOOK] Notificación recibida: ${userid}`);
+
+    // Buscar paciente
     const patient = await prisma.patient.findFirst({
-      where: { 
-        // Opción A: Campo dedicado en schema
-        // withingsUserId: withingsUserId
-        
-        // Opción B: Por ahora, hardcodeado para demo
-        email: "abraham@visionaryai.lat"
-      }
+      where: { withingsUserId: userid.toString() }
     });
 
     if (!patient) {
-      console.error(`[WITHINGS_WEBHOOK:${requestId}] Paciente no encontrado para userid: ${withingsUserId}`);
-      return NextResponse.json({ status: 'NO_PATIENT' }, { status: 200 }); // 200 para que Withings no reintente
+      console.error(`[WITHINGS_WEBHOOK] Paciente no encontrado: ${userid}`);
+      return NextResponse.json({ error: 'Patient not found' }, { status: 404 });
     }
 
-    // 4. Procesar medidas
-    const measures = notification.measures || [];
-    const processedData: Record<string, number> = {};
-    
-    for (const measure of measures) {
-      const mapping = WITHINGS_MEASURE_MAP[measure.type];
-      if (mapping) {
-        // Withings envía: value * 10^unit = valor real
-        // Ej: value=75600, unit=-3 → 75.6 kg
-        const realValue = measure.value * Math.pow(10, measure.unit);
-        processedData[mapping.field] = realValue;
-      }
+    // Verificar token
+    if (!patient.withingsToken || !patient.withingsExpires) {
+      return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
-    // 5. Calcular campos derivados
-    const weight = processedData['weight'];
-    const fatRatio = processedData['fatRatio']; // % (ya dividido)
-    const muscleMass = processedData['muscleMass'];
-    const hydration = processedData['hydration'];
-    
-    // Withings no da SMM directo, calculamos: muscleMass ≈ SMM (aproximado)
-    // O usar: fatFreeMass - boneMass - hydration ≈ SMM
-    
-    // 6. Guardar en DB (transacción atómica)
-    const result = await prisma.$transaction(async (tx) => {
-      // Archivar composición anterior
-      await tx.compositionRecord.updateMany({
-        where: { patientId: patient.id, isLatest: true },
-        data: { isLatest: false }
-      });
+    // Desencriptar y fetch datos
+    const accessToken = decryptToken(patient.withingsToken);
+    const compositions = await fetchWithingsData(accessToken);
 
-      // Crear nueva composición
-      const composition = await tx.compositionRecord.create({
+    // Guardar cada medición
+    for (const data of compositions) {
+      await saveComposition(patient.id, data);
+    }
+
+    // Crear evento de sistema
+    if (compositions.length > 0) {
+      await prisma.systemEvent.create({
         data: {
           patientId: patient.id,
-          weight: weight,
-          pbf: fatRatio,
-          smm: muscleMass || (processedData['fatFreeMass'] - processedData['boneMass'] - hydration),
-          bodyFatMass: processedData['fatMassWeight'] || (weight * fatRatio / 100),
-          totalBodyWater: hydration,
-          minerals: processedData['boneMass'],
-          // Estimados (Withings no da estos directo):
-          protein: (muscleMass || 0) * 0.2, // Aprox 20% de músculo es proteína
-          bmr: Math.round(10 * weight + 6.25 * (patient.height || 175) - 5 * (patient.age || 30) + 5),
-          vfl: 5, // Withings no da VFL directo, estimar o dejar null
-          phaseAngle: 7.5, // Withings no da phase angle
-          source: DataSource.WITHINGS_B2B, // Nuevo enum
-          isLatest: true,
-          date: new Date(notification.startdate * 1000),
-          notes: `Device: ${notification.deviceid || 'unknown'}`
+          type: 'NEW_DATA_AVAILABLE',
+          severity: 'INFO',
+          title: 'Nueva medición de Body Scan',
+          description: `Se registraron ${compositions.length} nuevas mediciones`,
+          isRead: false,
+          isProcessed: true,
         }
       });
-
-      // Crear snapshot biométrico si hay PWV (indicador cardiovascular)
-      if (processedData['pulseWaveVelocity']) {
-        await tx.biometricSnapshot.create({
-          data: {
-            patientId: patient.id,
-            source: DataSource.WITHINGS_B2B,
-            recordedAt: new Date(notification.startdate * 1000),
-            // PWV no está en nuestro schema, guardar en metadata o añadir campo
-          }
-        });
-      }
-
-      // Detectar cambios significativos y crear alertas
-      const previous = await tx.compositionRecord.findFirst({
-        where: { patientId: patient.id, isLatest: false },
-        orderBy: { date: 'desc' }
-      });
-
-      if (previous) {
-        const weightChange = weight - previous.weight;
-        const smmChange = (muscleMass || 0) - (previous.smm || 0);
-
-        if (Math.abs(weightChange) > 2) {
-          await tx.systemEvent.create({
-            data: {
-              patientId: patient.id,
-              type: EventType.SIGNIFICANT_WEIGHT_CHANGE,
-              severity: EventSeverity.WARNING,
-              title: 'Cambio de peso significativo (Withings)',
-              description: `${weightChange > 0 ? 'Subida' : 'Bajada'} de ${Math.abs(weightChange).toFixed(1)}kg detectada automáticamente`,
-              data: { previousWeight: previous.weight, newWeight: weight, source: 'withings' },
-              isRead: false,
-              isProcessed: false
-            }
-          });
-        }
-
-        if (smmChange > 0.5) {
-          await tx.systemEvent.create({
-            data: {
-              patientId: patient.id,
-              type: EventType.MUSCLE_GAIN_DETECTED,
-              severity: EventSeverity.INFO,
-              title: 'Ganancia muscular detectada',
-              description: `+${smmChange.toFixed(1)}kg de SMM desde última medición`,
-              data: { smmChange, source: 'withings' },
-              isRead: false,
-              isProcessed: true
-            }
-          });
-        }
-      }
-
-      // Actualizar lastProcessedAt
-      await tx.patient.update({
-        where: { id: patient.id },
-        data: { lastProcessedAt: new Date() }
-      });
-
-      return composition;
-    });
-
-    console.log(`[WITHINGS_WEBHOOK:${requestId}] Procesado OK - Peso: ${weight}kg, Grasa: ${fatRatio}%`);
+    }
 
     return NextResponse.json({ 
-      status: 'SUCCESS',
-      requestId,
-      processed: {
-        weight: weight,
-        fatRatio: fatRatio,
-        muscleMass: muscleMass,
-        compositionId: result.id
-      }
+      status: 'ok', 
+      processed: compositions.length 
     });
 
-  } catch (error: any) {
-    console.error(`[WITHINGS_WEBHOOK_ERROR:${requestId}]:`, error);
-    
-    // Siempre retornar 200 para que Withings no reintente indefinidamente
-    // (guardamos el error en logs para revisión manual)
-    return NextResponse.json({ 
-      status: 'ERROR_LOGGED',
-      requestId,
-      error: process.env.NODE_ENV === 'development' ? error.message : undefined
-    }, { status: 200 });
+  } catch (error) {
+    console.error('[WITHINGS_WEBHOOK_ERROR]', error);
+    return NextResponse.json({ error: 'Internal error' }, { status: 500 });
   }
+}
+
+async function fetchWithingsData(accessToken: string) {
+  const now = Math.floor(Date.now() / 1000);
+  const yesterday = now - 86400;
+
+  const response = await fetch(
+    `https://wbsapi.withings.net/measure?` + 
+    new URLSearchParams({
+      action: 'getmeas',
+      access_token: accessToken,
+      startdate: yesterday.toString(),
+      enddate: now.toString(),
+      meastypes: '1,6,76,77,88,91', // Peso, grasa, músculo, agua, hueso, BMI
+    })
+  );
+
+  const data = await response.json();
+  if (data.status !== 0) throw new Error(data.error);
+  
+  return data.body.measuregrps || [];
+}
+
+async function saveComposition(patientId: string, measuregrp: any) {
+  const date = new Date(measuregrp.date * 1000);
+  const measures = measuregrp.measures;
+  
+  const getValue = (type: number) => {
+    const m = measures.find((x: any) => x.type === type);
+    return m ? m.value * Math.pow(10, m.unit) : null;
+  };
+
+  const weight = getValue(1);
+  const fatRatio = getValue(6);
+  const muscleMass = getValue(76);
+  const hydration = getValue(77);
+  const boneMass = getValue(88);
+
+  if (!weight) return;
+
+  const bodyFatMass = weight * (fatRatio || 0) / 100;
+
+  await prisma.compositionRecord.create({
+    data: {
+      patientId,
+      date,
+      weight,
+      smm: muscleMass || 0,
+      pbf: fatRatio || 0,
+      bodyFatMass,
+      totalBodyWater: weight * (hydration || 0) / 100,
+      protein: null,
+      minerals: boneMass || 0,
+      bmr: null,
+      vfl: null,
+      phaseAngle: null,
+      source: DataSource.WITHINGS_API,
+      deviceId: measuregrp.deviceid?.toString(),
+      isLatest: false,
+    }
+  });
 }
