@@ -1,3 +1,4 @@
+// schema.prisma
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = ["driverAdapters", "fullTextSearch", "fullTextIndex"]
@@ -10,11 +11,10 @@ datasource db {
 }
 
 // ============================================================================
-// ENUMS DEL SISTEMA
+// ENUMS
 // ============================================================================
 
 enum MetricType {
-  // Buceo / Aventura
   DEPTH
   WATER_TEMPERATURE
   DECO_STOP
@@ -22,20 +22,14 @@ enum MetricType {
   ASCENT_RATE
   SURFACE_INTERVAL
   GAS_MIX
-  
-  // Cardiovascular
   HEART_RATE
   HEART_RATE_VARIABILITY
   SPO2
   BLOOD_PRESSURE_SYSTOLIC
   BLOOD_PRESSURE_DIASTOLIC
-  
-  // Metabólico
   BLOOD_GLUCOSE
   KETONES
   LACTATE
-  
-  // Rendimiento
   POWER_OUTPUT
   CADENCE
   SPEED
@@ -43,15 +37,12 @@ enum MetricType {
 }
 
 enum DataSource {
-  // Bioimpedancia
   INBODY_970
   INBODY_770
   INBODY_270
   BIA_MULTIFRECUENCIA
   BIA_SEGMENTAL
   BIA_HANDHELD
-  
-  // Wearables
   GARMIN_FENIX_7
   GARMIN_FENIX_7X
   GARMIN_DESCENT_MK2
@@ -61,23 +52,15 @@ enum DataSource {
   APPLE_WATCH_S9
   WHOOP_4
   OURA_RING_3
-  
-  // Buceo
   SHEARWATER_PERDIX
   SHEARWATER_PETREL
   SHEARWATER_TERIC
   SUUNTO_D5
   SUUNTO_EON_CORE
-  
-  // Manual
   MANUAL_ENTRY
   IMPORT_CSV
   API_INTEGRATION
-  
-  // Laboratorio
   LAB_ANALYSIS
-  
-  // APIs y Webhooks
   WITHINGS_B2B
   WITHINGS_API
 }
@@ -98,25 +81,18 @@ enum EventSeverity {
 }
 
 enum EventType {
-  // Seguridad
   DECO_VIOLATION
   ASCENT_RATE_EXCEEDED
   LOW_GAS_ALARM
   DIVE_EMERGENCY
-  
-  // Biométricos
   HEART_RATE_ANOMALY
   HRV_LOW
   SPO2_CRITICAL
   TEMPERATURE_ANOMALY
-  
-  // Composición
   SIGNIFICANT_WEIGHT_CHANGE
   MUSCLE_GAIN_DETECTED
   MUSCLE_LOSS_DETECTED
   BODY_FAT_THRESHOLD
-  
-  // Sistema
   DATA_CONFLICT
   SYNC_COMPLETED
   NEW_DATA_AVAILABLE
@@ -127,7 +103,7 @@ enum ChatMessageRole {
   USER
   ASSISTANT
   SYSTEM
-  EVENT // Mensajes generados por eventos del sistema
+  EVENT
 }
 
 enum DocumentType {
@@ -147,23 +123,19 @@ model Patient {
   name              String
   email             String   @unique
   age               Int?
-  height            Float?   // cm
-  targetWeight      Float?   // kg
+  height            Float?
+  targetWeight      Float?
   activityLevel     ActivityLevel @default(MODERATELY_ACTIVE)
-  
-  // Timestamps de interacción para sistema de eventos
   lastChatAt        DateTime?
   lastProcessedAt   DateTime?
-  
-  // Metadata del sistema
   createdAt         DateTime @default(now())
   updatedAt         DateTime @updatedAt
   
-  // Withings Integration
-  withingsUserId  String?   @unique
-  withingsToken   String?   // Access token encriptado
-  withingsRefresh String?   // Refresh token
-  withingsExpires DateTime? // Expiración token
+  // Withings
+  withingsUserId    String?   @unique
+  withingsToken     String?
+  withingsRefresh   String?
+  withingsExpires   DateTime?
   
   // Relaciones
   compositions      CompositionRecord[]
@@ -175,220 +147,140 @@ model Patient {
   systemEvents      SystemEvent[]
   protocolDocuments ProtocolDocument[]
   documentAccessLogs DocumentAccessLog[]
+  advisorSessions   AdvisorSession[]
   
   @@index([email])
   @@index([lastChatAt])
-  @@index([lastProcessedAt])
 }
-
-// ============================================================================
-// COMPOSICIÓN CORPORAL (BIA)
-// ============================================================================
 
 model CompositionRecord {
   id              String     @id @default(cuid())
   patientId       String
   date            DateTime   @default(now())
-  
-  // Composición básica
-  weight          Float      // kg
-  smm             Float      // Skeletal Muscle Mass (kg)
-  pbf             Float      // Percent Body Fat (%)
-  bodyFatMass     Float      // kg
-  
-  // Composición avanzada
-  totalBodyWater  Float      // TBW (litros)
-  protein         Float      // Masa proteica (kg)
-  minerals        Float      // Masa mineral (kg)
-  bmr             Int        // Basal Metabolic Rate (kcal/día)
-  
-  // Métricas de salud
-  vfl             Int        // Visceral Fat Level (1-20)
-  phaseAngle      Float      // Grados (6-10 óptimo)
-  waistHipRatio   Float?     // Relación cintura/cadera
-  
-  // Segmental (opcional, para análisis avanzado)
+  weight          Float
+  smm             Float
+  pbf             Float
+  bodyFatMass     Float
+  totalBodyWater  Float
+  protein         Float
+  minerals        Float
+  bmr             Int
+  vfl             Int
+  phaseAngle      Float
+  waistHipRatio   Float?
   rightArmMuscle  Float?
   leftArmMuscle   Float?
   trunkMuscle     Float?
   rightLegMuscle  Float?
   leftLegMuscle   Float?
-  
-  // Metadata
   source          DataSource @default(INBODY_270)
-  deviceId        String?    // ID del dispositivo específico
+  deviceId        String?
   isLatest        Boolean    @default(false)
-  notes           String?    // Contexto de la medición
+  notes           String?
   
   patient         Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
   
   @@index([patientId, isLatest])
   @@index([patientId, date(sort: Desc)])
-  @@index([source])
 }
-
-// ============================================================================
-// BIOMÉTRICOS CONTINUOS (Wearables)
-// ============================================================================
 
 model BiometricSnapshot {
   id            String     @id @default(cuid())
   patientId     String
-  
-  // Cardiovascular
-  bpm           Int?       // Heart rate
-  hrv           Float?     // Heart Rate Variability (ms)
-  hrvStatus     String?    // "balanced", "unbalanced", etc.
-  spo2          Float?     // Oxygen saturation (%)
+  bpm           Int?
+  hrv           Float?
+  hrvStatus     String?
+  spo2          Float?
   bloodPressureSystolic   Int?
   bloodPressureDiastolic  Int?
-  
-  // Térmico
-  temperature   Float?     // °C
-  skinTemp      Float?     // Temperatura superficial
-  
-  // Actividad
+  temperature   Float?
+  skinTemp      Float?
   steps         Int?
   calories      Int?
   activeMinutes Int?
-  
-  // Recuperación
   sleepScore    Int?
   recoveryScore Int?
   stressLevel   Int?
-  
-  // Metadata
   recordedAt    DateTime   @default(now())
   source        DataSource
   deviceId      String?
-  isSynced      Boolean    @default(false) // Si ya fue procesado por Curie
+  isSynced      Boolean    @default(false)
   
   patient       Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
   
   @@index([patientId, recordedAt(sort: Desc)])
-  @@index([patientId, source])
-  @@index([isSynced])
 }
-
-// ============================================================================
-// MÉTRICAS DE AVENTURA (Buceo, Escalada, etc.)
-// ============================================================================
 
 model MetricLog {
   id          String     @id @default(cuid())
   patientId   String
-  
   type        MetricType
   value       Float
   unit        String
-  
-  // Contexto temporal
   startedAt   DateTime   @default(now())
   endedAt     DateTime?
-  duration    Int?       // segundos
-  
-  // Metadata estructurada según tipo
-  metadata    Json?      // { decompressionViolated: boolean, gasMix: "32%", ... }
-  
-  // Ubicación (si aplica)
-  location    Json?      // { lat: 20.5, lng: -87.2, site: "Cenote Dos Ojos" }
-  
-  // Relaciones
+  duration    Int?
+  metadata    Json?
+  location    Json?
   source      DataSource
   deviceId    String?
-  
-  // Flags del sistema
   isProcessed Boolean    @default(false)
   hasAlert    Boolean    @default(false)
   
   patient     Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
   
   @@index([patientId, type, startedAt(sort: Desc)])
-  @@index([patientId, hasAlert])
-  @@index([isProcessed])
 }
-
-// ============================================================================
-// RESULTADOS DE LABORATORIO
-// ============================================================================
 
 model LabResult {
-  id          String   @id @default(cuid())
-  patientId   String
+  id            String   @id @default(cuid())
+  patientId     String
+  name          String
+  category      String
+  value         Float
+  unit          String
+  referenceMin  Float?
+  referenceMax  Float?
+  status        String
+  flagged       Boolean  @default(false)
+  date          DateTime @default(now())
+  labName       String?
+  notes         String?
   
-  // Identificación
-  name        String   // "Testosterona Total", "Hematocrito", etc.
-  category    String   // "Hormonal", "Hematología", "Bioquímica"
-  
-  // Valor
-  value       Float
-  unit        String
-  referenceMin Float?
-  referenceMax Float?
-  
-  // Interpretación
-  status      String   // "normal", "alto", "bajo", "crítico"
-  flagged     Boolean  @default(false)
-  
-  // Contexto
-  date        DateTime @default(now())
-  labName     String?
-  notes       String?
-  
-  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   
   @@index([patientId, date(sort: Desc)])
-  @@index([patientId, category])
-  @@index([flagged])
 }
 
-// ============================================================================>
-// MODELO DE RECETAS MÉDICAS
-// ============================================================================
-
 model Prescription {
-  id          String   @id @default(cuid())
-  patientId   String
+  id            String   @id @default(cuid())
+  patientId     String
+  medication    String
+  dosage        String
+  frequency     String
+  prescribedBy  String
+  prescribedAt  DateTime @default(now())
+  validUntil    DateTime?
+  notes         String?
+  isActive      Boolean  @default(true)
+  documentUrl   String?
   
-  // Información del medicamento
-  medication  String
-  dosage      String
-  frequency   String
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   
-  // Prescripción
-  prescribedBy String
-  prescribedAt DateTime @default(now())
-  validUntil   DateTime?
-  
-  // Notas adicionales
-  notes       String?
-  isActive    Boolean  @default(true)
-  
-  // Vinculación a documento
-  documentUrl String?
-  
-  // Relación
-  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  @@index([patientId])
   @@index([patientId, isActive])
 }
 
 // ============================================================================
-// SISTEMA DE CHAT Y EVENTOS (NUEVO)
+// CHAT & EVENTS
 // ============================================================================
 
 model ChatSession {
   id          String   @id @default(cuid())
   patientId   String
-  
   startedAt   DateTime @default(now())
   endedAt     DateTime?
+  context     Json?
   
-  // Contexto de la sesión
-  context     Json?    // { telemetryAtStart: {...}, eventsTriggered: [...] }
-  
-  // Mensajes
   messages    ChatMessage[]
   
   patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
@@ -399,22 +291,14 @@ model ChatSession {
 model ChatMessage {
   id          String          @id @default(cuid())
   sessionId   String
-  
   role        ChatMessageRole
   content     String          @db.Text
-  
-  // Metadata de procesamiento
   tokensUsed  Int?
-  model       String?         // "llama-3.3-70b", "gpt-4-turbo"
+  model       String?
   latencyMs   Int?
-  
-  // Contexto enviado
-  telemetryContext  Json?     // Snapshot de telemetry usado
-  patientDataContext Json?    // Snapshot de patientData usado
-  
-  // Eventos asociados a este mensaje
-  triggeredEvents   String[]  // IDs de SystemEvent
-  
+  telemetryContext  Json?
+  patientDataContext Json?
+  triggeredEvents   String[]
   createdAt   DateTime        @default(now())
   
   session     ChatSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
@@ -425,92 +309,88 @@ model ChatMessage {
 model SystemEvent {
   id          String       @id @default(cuid())
   patientId   String
-  
   type        EventType
   severity    EventSeverity
-  
-  // Contenido
   title       String
   description String       @db.Text
-  data        Json?        // Datos específicos del evento
-  
-  // Estado
+  data        Json?
   isRead      Boolean      @default(false)
-  isProcessed Boolean      @default(false) // Procesado por Curie
+  isProcessed Boolean      @default(false)
   acknowledgedAt DateTime?
-  
-  // Relaciones
-  relatedMetrics String[]  // IDs de MetricLog relacionados
-  relatedCompositions String[] // IDs de CompositionRecord
-  
+  relatedMetrics String[]
+  relatedCompositions String[]
   createdAt   DateTime     @default(now())
-  expiresAt   DateTime?    // Eventos temporales
+  expiresAt   DateTime?
   
   patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
   
   @@index([patientId, createdAt(sort: Desc)])
-  @@index([patientId, isRead])
-  @@index([patientId, severity])
   @@index([type, isProcessed])
 }
 
 // ============================================================================
-// CONFIGURACIÓN Y CACHE (Opcional, para escalabilidad)
+// ARKANGEL ADVISOR (Dr. Chat)
 // ============================================================================
 
-model PatientConfig {
-  id              String   @id @default(cuid())
-  patientId       String   @unique
+model AdvisorSession {
+  id            String   @id @default(cuid())
+  patientId     String
+  arkangelConvId String?
+  phaseAngleAtStart Float?
+  latestCompositionId String?
+  startedAt     DateTime @default(now())
+  endedAt       DateTime?
+  category      String?
+  actionsTaken  String[]
   
-  // Preferencias de notificación
-  alertOnDecoViolation Boolean @default(true)
-  alertOnDataConflict  Boolean @default(true)
-  alertThresholdBPM    Int?    // Notificar si BPM > X en reposo
+  messages      AdvisorMessage[]
   
-  // Preferencias de display
-  preferredUnitWeight  String  @default("kg") // kg, lbs
-  preferredUnitHeight  String  @default("cm") // cm, ft
+  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
   
-  // Límites personalizados
-  targetSMM           Float?
-  targetPBF           Float?
-  maxDepthAlert       Float?   // Notificar si profundidad > X
+  @@index([patientId, startedAt(sort: Desc)])
+  @@index([arkangelConvId])
+}
+
+model AdvisorMessage {
+  id            String   @id @default(cuid())
+  sessionId     String
+  arkangelMsgId String?
+  role          String
+  content       String   @db.Text
+  sources       Json?
+  tokensUsed    Int?
+  createdAt     DateTime @default(now())
   
-  updatedAt           DateTime @updatedAt
+  session       AdvisorSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  
+  @@index([sessionId, createdAt])
 }
 
 // ============================================================================
-// DOCUMENTOS Y PROTOCOLOS
+// DOCUMENTS
 // ============================================================================
 
 model ProtocolDocument {
-  id          String       @id @default(cuid())
-  patientId   String
-  type        DocumentType
-  title       String
-  description String?
-  fileUrl     String       // URL al storage (S3, R2, etc.)
-  fileSize    String?
-  checksum    String?      // SHA-256 para integridad
+  id            String       @id @default(cuid())
+  patientId     String
+  type          DocumentType
+  title         String
+  description   String?
+  fileUrl       String
+  fileSize      String?
+  checksum      String?
+  version       String       @default("1.0")
+  isLatest      Boolean      @default(true)
+  prescribedBy  String?
+  validUntil    DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  lastAccessed  DateTime?
   
-  // Versionado
-  version     String       @default("1.0")
-  isLatest    Boolean      @default(true)
-  
-  // Para recetas médicas
-  prescribedBy String?
-  validUntil   DateTime?
-  
-  // Auditoría
-  createdAt    DateTime     @default(now())
-  updatedAt    DateTime     @updatedAt
-  lastAccessed DateTime?
-  
-  patient      Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  accessLogs   DocumentAccessLog[]
+  patient       Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  accessLogs    DocumentAccessLog[]
   
   @@index([patientId, type, isLatest])
-  @@index([patientId, createdAt])
 }
 
 model DocumentAccessLog {
@@ -527,14 +407,20 @@ model DocumentAccessLog {
   @@index([documentId, accessedAt])
 }
 
-// Vista materializada para queries rápidas (requiere migración manual en Postgres)
-// model PatientStatsMV {
-//   patientId           String   @id
-//   latestCompositionId String?
-//   latestBiometricId   String?
-//   totalDives          Int      @default(0)
-//   lastDiveAt          DateTime?
-//   avgSMM              Float?
-//   trendWeight         Float?   // +1, -1, 0
-//   updatedAt           DateTime @updatedAt
-// }
+// ============================================================================
+// CONFIG
+// ============================================================================
+
+model PatientConfig {
+  id              String   @id @default(cuid())
+  patientId       String   @unique
+  alertOnDecoViolation Boolean @default(true)
+  alertOnDataConflict  Boolean @default(true)
+  alertThresholdBPM    Int?
+  preferredUnitWeight  String  @default("kg")
+  preferredUnitHeight  String  @default("cm")
+  targetSMM           Float?
+  targetPBF           Float?
+  maxDepthAlert       Float?
+  updatedAt           DateTime @updatedAt
+}

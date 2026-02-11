@@ -1,4 +1,3 @@
-// src/app/admin/page.tsx
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
@@ -7,11 +6,9 @@ import { PatientHeader } from "@/components/admin/PatientHeader";
 import { CompositionTable } from "@/components/admin/CompositionTable";
 import { AdvancedMetrics } from "@/components/admin/AdvancedMetrics";
 import { EmptyState } from "@/components/admin/EmptyState";
+import { AdvisorChat } from "@/components/admin/AdvisorChat";
 import { TrendDirection } from "@/types/metrics";
-
-interface PageProps {
-  searchParams: Promise<{ patientId?: string }>;
-}
+import { Activity, User, TrendingUp } from "lucide-react";
 
 interface ChangeResult {
   value: number;
@@ -41,28 +38,27 @@ const formatDate = (date: Date | null): string => {
   });
 };
 
-export default async function AdminDashboardPage({ searchParams }: PageProps) {
-  const { patientId } = await searchParams;
-  const targetId = patientId || "abraham-001";
+export default async function DoctorDashboardPage() {
+  const patientId = "abraham-001";
 
-  let patient;
-  
-  try {
-    patient = await prisma.patient.findFirst({
-      where: {
-        OR: [{ id: targetId }, { email: "abraham@visionaryai.lat" }],
+  const patient = await prisma.patient.findFirst({
+    where: {
+      OR: [{ id: patientId }, { email: "abraham@visionaryai.lat" }],
+    },
+    include: {
+      compositions: {
+        orderBy: { date: "desc" },
+        take: 10,
       },
-      include: {
-        compositions: {
-          orderBy: { date: "desc" },
-          take: 10,
+      _count: {
+        select: {
+          compositions: true,
+          metrics: true,
+          labResults: true,
         },
       },
-    });
-  } catch (error) {
-    console.error("[ADMIN_DASHBOARD_ERROR]:", error);
-    throw new Error("Failed to load patient data");
-  }
+    },
+  });
 
   if (!patient) {
     notFound();
@@ -86,117 +82,123 @@ export default async function AdminDashboardPage({ searchParams }: PageProps) {
     previousComposition?.pbf ?? null
   );
 
+  // Stats para el header
+  const stats = [
+    { label: "Mediciones", value: patient._count.compositions, icon: Activity },
+    { label: "Inmersiones", value: patient._count.metrics, icon: TrendingUp },
+    { label: "Análisis", value: patient._count.labResults, icon: User },
+  ];
+
   return (
     <div className="min-h-screen bg-black text-white">
-      {/* Header */}
-      <header className="border-b border-slate-800 bg-slate-900/50 backdrop-blur-sm sticky top-0 z-10">
-        <div className="max-w-7xl mx-auto px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link
-              href="/admin"
-              className="text-2xl font-bold text-cyan-500 hover:text-cyan-400 transition-colors"
-            >
-              Curie
-            </Link>
-            <span className="text-slate-500">/</span>
-            <span className="text-slate-300">Panel de Administración</span>
+      {/* Header Stats */}
+      <div className="border-b border-slate-800 bg-slate-900/50">
+        <div className="max-w-7xl mx-auto px-6 py-4">
+          <div className="flex items-center justify-between">
+            <div>
+              <h1 className="text-2xl font-bold text-white">Dashboard Médico</h1>
+              <p className="text-slate-400 text-sm mt-1">
+                Vista general del paciente
+              </p>
+            </div>
+            <div className="flex gap-6">
+              {stats.map((stat) => (
+                <div key={stat.label} className="text-center">
+                  <p className="text-2xl font-black text-cyan-400">{stat.value}</p>
+                  <p className="text-xs text-slate-500 uppercase tracking-wider">{stat.label}</p>
+                </div>
+              ))}
+            </div>
           </div>
-          <Link
-            href="/admin/measurement"
-            className="inline-flex items-center gap-2 px-6 py-2.5 bg-cyan-600 hover:bg-cyan-500 text-white font-medium rounded-lg transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-cyan-500/50"
-          >
-            <svg
-              className="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                strokeWidth={2}
-                d="M12 4v16m8-8H4"
+        </div>
+      </div>
+
+      <main className="max-w-7xl mx-auto px-6 py-8">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
+          {/* Columna izquierda: Datos del paciente */}
+          <div className="lg:col-span-2 space-y-8">
+            {/* Patient Header */}
+            <PatientHeader
+              name={patient.name}
+              id={patient.id}
+              email={patient.email}
+              age={patient.age}
+              height={patient.height}
+              targetWeight={patient.targetWeight}
+            />
+
+            {/* Métricas Principales */}
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-4 flex items-center gap-2">
+                <Activity className="w-5 h-5 text-cyan-400" />
+                Métricas Corporales
+              </h2>
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                <MetricCard
+                  label="Peso Actual"
+                  value={latestComposition?.weight}
+                  unit="kg"
+                  change={weightChange}
+                  changeType="weight"
+                  icon="scale"
+                  lastUpdated={formatDate(latestComposition?.date)}
+                />
+                <MetricCard
+                  label="Masa Muscular (SMM)"
+                  value={latestComposition?.smm}
+                  unit="kg"
+                  change={smmChange}
+                  changeType="muscle"
+                  icon="muscle"
+                  source={latestComposition?.source}
+                />
+                <MetricCard
+                  label="Grasa Corporal (PBF)"
+                  value={latestComposition?.pbf}
+                  unit="%"
+                  change={pbfChange}
+                  changeType="fat"
+                  icon="chart"
+                  detail={`Masa grasa: ${latestComposition?.bodyFatMass?.toFixed(1) ?? "--"} kg`}
+                />
+              </div>
+            </section>
+
+            {/* Métricas Avanzadas */}
+            {latestComposition && (
+              <AdvancedMetrics composition={latestComposition} />
+            )}
+
+            {/* Historial */}
+            <section>
+              <h2 className="text-lg font-semibold text-white mb-4">
+                Historial de Composiciones
+              </h2>
+              {patient.compositions.length > 0 ? (
+                <CompositionTable
+                  compositions={patient.compositions}
+                  formatDate={formatDate}
+                />
+              ) : (
+                <EmptyState />
+              )}
+            </section>
+          </div>
+
+          {/* Columna derecha: Advisor Chat */}
+          <div className="lg:col-span-1">
+            <div className="sticky top-24 h-[calc(100vh-8rem)]">
+              <AdvisorChat
+                patientId={patient.id}
+                phaseAngle={latestComposition?.phaseAngle ?? null}
+                patientName={patient.name || "Paciente"}
+                patientAge={patient.age}
+                patientHeight={patient.height}
               />
-            </svg>
-            Nueva Medición
-          </Link>
-        </div>
-      </header>
-
-      <main className="max-w-7xl mx-auto px-6 py-8 space-y-8">
-        {/* Patient Info */}
-        <PatientHeader
-          name={patient.name}
-          id={patient.id}
-          email={patient.email}
-          age={patient.age}
-          height={patient.height}
-          targetWeight={patient.targetWeight}
-        />
-
-        {/* Key Metrics */}
-        <section>
-          <h2 className="text-lg font-semibold text-white mb-4">
-            Métricas Corporales
-          </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <MetricCard
-              label="Peso Actual"
-              value={latestComposition?.weight}
-              unit="kg"
-              change={weightChange}
-              changeType="weight"
-              icon="scale"
-              lastUpdated={formatDate(latestComposition?.date)}
-            />
-            <MetricCard
-              label="Masa Muscular (SMM)"
-              value={latestComposition?.smm}
-              unit="kg"
-              change={smmChange}
-              changeType="muscle"
-              icon="muscle"
-              source={latestComposition?.source}
-            />
-            <MetricCard
-              label="Grasa Corporal (PBF)"
-              value={latestComposition?.pbf}
-              unit="%"
-              change={pbfChange}
-              changeType="fat"
-              icon="chart"
-              detail={`Masa grasa: ${latestComposition?.bodyFatMass?.toFixed(1) ?? "--"} kg`}
-            />
+            </div>
           </div>
-        </section>
-
-        {/* Advanced Metrics */}
-        {latestComposition && (
-          <AdvancedMetrics composition={latestComposition} />
-        )}
-
-        {/* History */}
-        <section>
-          <h2 className="text-lg font-semibold text-white mb-4">
-            Historial de Composiciones
-          </h2>
-          {patient.compositions.length > 0 ? (
-            <CompositionTable
-              compositions={patient.compositions}
-              formatDate={formatDate}
-            />
-          ) : (
-            <EmptyState />
-          )}
-        </section>
-      </main>
-
-      {/* Footer */}
-      <footer className="border-t border-slate-800 mt-12 py-6">
-        <div className="max-w-7xl mx-auto px-6 text-center text-slate-500 text-sm">
-          © {new Date().getFullYear()} Curie Intelligence. Todos los derechos reservados.
         </div>
-      </footer>
+      </main>
     </div>
   );
 }
