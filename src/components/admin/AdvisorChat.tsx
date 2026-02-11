@@ -43,7 +43,7 @@ interface AdvisorChatProps {
   patientHeight?: number | null;
 }
 
-const SYSTEM_CONTEXT = (phaseAngle: number | null, patientName: string, age: number | null, height: number | null) => ({
+const SYSTEM_CONTEXT = (phaseAngle: number | null, patientName: string, age: number | null | undefined, height: number | null | undefined) => ({
   patient_name: patientName,
   patient_id: "abraham-001",
   patient_age: age,
