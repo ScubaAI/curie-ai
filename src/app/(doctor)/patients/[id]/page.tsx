@@ -1,4 +1,3 @@
-// src/app/(doctor)/patients/[patientId]/page.tsx
 import React from 'react';
 import { prisma } from '@/lib/prisma';
 import { getAccessToken, verifyAccessToken } from '@/lib/auth/session';
@@ -12,20 +11,26 @@ import {
     ShieldCheck,
     AlertTriangle
 } from 'lucide-react';
+import Link from 'next/link';
+
+// Assuming CompositionChart is default export or named export
 import { CompositionChart } from '@/components/doctor/patient-detail/CompositionChart';
 
 export default async function PatientSummaryPage({
     params
 }: {
-    params: { patientId: string };
+    params: Promise<{ id: string }>;
 }) {
+    // Await params for Next.js 15+ compatibility
+    const { id: patientId } = await params;
+
     const token = await getAccessToken();
     if (!token) redirect('/login');
 
     const payload = verifyAccessToken(token);
 
     const patient = await prisma.patient.findUnique({
-        where: { id: params.patientId },
+        where: { id: patientId },
         include: {
             compositions: { orderBy: { measuredAt: 'desc' }, take: 10 },
             labResults: { orderBy: { reportedAt: 'desc' }, take: 5 },
@@ -33,7 +38,7 @@ export default async function PatientSummaryPage({
         }
     });
 
-    if (!patient) redirect('/admin/dashboard');
+    if (!patient) redirect('/doctor/dashboard');
 
     const latestComp = patient.compositions[0];
     const previousComp = patient.compositions[1];
@@ -60,8 +65,8 @@ export default async function PatientSummaryPage({
                         <p className="text-slate-500 text-xs font-bold uppercase tracking-widest">{m.label}</p>
                         <h3 className="text-2xl font-black text-white mt-1">{m.value}</h3>
                         {m.trend !== undefined && m.trend !== 0 && (
-                            <p className={`text-[10px] mt-2 font-bold ${m.trend > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
-                                {m.trend > 0 ? '+' : ''}{m.trend} kg desde última medición
+                            <p className={`text-[10px] mt-2 font-bold ${typeof m.trend === 'number' && m.trend > 0 ? 'text-rose-400' : 'text-emerald-400'}`}>
+                                {m.trend > 0 ? '+' : ''}{typeof m.trend === 'number' ? m.trend.toFixed(1) : m.trend} kg desde última medición
                             </p>
                         )}
                     </div>
@@ -113,8 +118,8 @@ export default async function PatientSummaryPage({
                                 </div>
                             ))}
                         </div>
-                        <Link href={`/admin/patients/${params.patientId}/labs`} className="block text-center mt-6 text-xs text-slate-500 hover:text-white uppercase font-black tracking-widest transition-colors">
-                            Ver Historial Completo
+                        <Link href={`/doctor/patient/${patientId}/overview`} className="block text-center mt-6 text-xs text-slate-500 hover:text-white uppercase font-black tracking-widest transition-colors">
+                            Ver Dashboard Completo
                         </Link>
                     </div>
                 </div>

@@ -405,7 +405,6 @@ export default function DoctorPatientOverviewPage() {
                                             label="% Grasa Corporal"
                                             value={latest.pbf ?? '—'}
                                             unit="%"
-                                            inverseTrend={true}
                                             trend={
                                                 pbfChange !== 0
                                                     ? {

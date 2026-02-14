@@ -12,7 +12,7 @@ export const PatientCard = ({ patient }: PatientCardProps) => {
     const latestVital = patient.vitalLogs?.[0];
 
     return (
-        <Link href={`/admin/patients/${patient.id}`}>
+        <Link href={`/doctor/patient/${patient.id}/overview`}>
             <div className="bg-slate-900/40 border border-slate-800 p-6 rounded-3xl hover:border-emerald-500/30 hover:bg-slate-900/60 transition-all group">
                 <div className="flex items-center justify-between mb-6">
                     <div className="flex items-center gap-4">

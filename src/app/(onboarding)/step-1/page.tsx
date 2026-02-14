@@ -190,7 +190,7 @@ export default function DemographicsPage() {
               value={formData.height}
               onChange={handleChange}
               className={`w-full bg-slate-950/60 border ${errors.height ? 'border-rose-500/60' : 'border-slate-700/40'} rounded-xl px-5 py-4 text-white placeholder-slate-500 focus:border-cyan-500/60 focus:ring-2 focus:ring-cyan-500/25 transition-all duration-300`}
-              placeholder="178 cm o 5'10\""
+              placeholder="178 cm o 5'10&quot;"
             />
             {errors.height && <p className="mt-1 text-xs text-rose-400">{errors.height}</p>}
           </div>
