@@ -2,7 +2,7 @@
   "crons": [
     {
       "path": "/api/cron/process-sync-jobs",
-      "schedule": "*/15 * * * *"
+      "schedule": "0 2 * * *"
     },
     {
       "path": "/api/cron/rotate-tokens",
