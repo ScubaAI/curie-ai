@@ -1,172 +1,188 @@
 'use client';
 
 import { useState } from 'react';
-import { Activity, Heart, Wifi, Battery, ChevronRight, ShieldCheck, Truck, RefreshCw } from 'lucide-react';
-
-interface ProductSpecs {
-  weight: string;
-  battery: string;
-  connectivity: string;
-  display: string;
-}
+import { motion } from 'framer-motion';
+import { Heart, Activity, Wifi, Battery, ChevronRight, ShieldCheck, Truck, RefreshCw, Zap } from 'lucide-react';
 
 interface WithingsProductProps {
-  clipPaymentUrl: string; // Tu link de pago de Clip
-  affiliateWithingsUrl?: string; // Opcional: link con comisión
+  clipPaymentUrl: string;
+  affiliateWithingsUrl?: string;
+  productImage?: string; // Opcional: URL de imagen real del producto
 }
 
-export default function WithingsProductCard({ 
+export default function WithingsProductCard({
   clipPaymentUrl,
-  affiliateWithingsUrl = "https://www.withings.com/body-scan" 
+  affiliateWithingsUrl = "https://www.withings.com/mx/body-scan",
+  productImage = "/images/withings-body-scan-hero.png" // fallback o placeholder
 }: WithingsProductProps) {
   const [showDetails, setShowDetails] = useState(false);
 
   const features = [
-    { icon: Heart, label: "ECG 6 derivaciones", desc: "Detección clínica de FA" },
-    { icon: Activity, label: "BIA Multifrecuencia", desc: "Análisis segmental corporal" },
-    { icon: Wifi, label: "WiFi + Bluetooth", desc: "Autosync automático" },
-    { icon: Battery, label: "1 año batería", desc: "Recargable USB-C" }
+    { icon: Heart, label: "ECG 6 derivaciones", desc: "Detección clínica de fibrilación auricular" },
+    { icon: Activity, label: "BIA multifrecuencia", desc: "Análisis segmental preciso" },
+    { icon: Wifi, label: "WiFi + Bluetooth", desc: "Sincronización automática" },
+    { icon: Battery, label: "Batería 12 meses", desc: "Recargable USB-C" },
   ];
 
-  const specs: ProductSpecs = {
-    weight: "5-200 kg precisión",
-    battery: "Hasta 12 meses",
-    connectivity: "WiFi 802.11 b/g/n + BT",
-    display: "LCD 2.8\" a color"
-  };
-
   return (
-    <section className="bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 border border-slate-700/30 rounded-3xl p-8 lg:p-10 relative overflow-hidden backdrop-blur-xl shadow-2xl">
-      {/* Badge de integración nativa */}
-      <div className="absolute top-4 right-4 bg-emerald-500/10 border border-emerald-500/20 rounded-full px-3 py-1">
-        <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
-          Integración Curie ✓
+    <motion.section
+      initial={{ opacity: 0, y: 20 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.6, ease: "easeOut" }}
+      className="bg-gradient-to-br from-slate-950 via-slate-900/95 to-slate-950 border border-slate-700/40 rounded-3xl p-8 lg:p-10 relative overflow-hidden backdrop-blur-xl shadow-2xl shadow-cyan-950/30 hover:shadow-cyan-950/50 transition-shadow duration-500"
+    >
+      {/* Badge exclusivo Curie */}
+      <div className="absolute top-5 right-5 z-10">
+        <div className="bg-gradient-to-r from-emerald-600/80 to-teal-600/80 px-4 py-1.5 rounded-full border border-emerald-400/30 shadow-lg shadow-emerald-950/40">
+          <span className="text-xs font-bold text-white uppercase tracking-widest flex items-center gap-1.5">
+            <Zap size={12} className="text-white" />
+            Exclusivo Curie
+          </span>
+        </div>
+      </div>
+
+      {/* Hero con imagen real + overlay glow */}
+      <div className="relative mb-10 rounded-2xl overflow-hidden border border-slate-700/50 shadow-2xl group">
+        <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent z-10" />
+        <img
+          src={productImage}
+          alt="Withings Body Scan"
+          className="w-full h-64 lg:h-80 object-cover object-center transition-transform duration-700 group-hover:scale-105"
+          onError={(e) => { (e.target as HTMLImageElement).src = '/images/withings-placeholder.png'; }}
+        />
+        <div className="absolute inset-0 bg-gradient-to-br from-cyan-500/10 to-transparent pointer-events-none" />
+      </div>
+
+      {/* Título y descripción */}
+      <h3 className="text-3xl font-light text-white mb-3 tracking-tight">
+        Withings Body Scan
+      </h3>
+      <p className="text-slate-300 leading-relaxed mb-6">
+        La báscula clínica más avanzada del mundo: ECG médico, análisis vascular y composición corporal segmental — sincronizada directamente con tu perfil Curie.
+      </p>
+
+      {/* Precio – impacto visual */}
+      <div className="flex items-baseline gap-4 mb-8">
+        <span className="text-5xl font-light text-emerald-400 tracking-tight">$5,499</span>
+        <span className="text-2xl text-slate-500 line-through">$6,299</span>
+        <span className="text-lg font-medium text-emerald-500 bg-emerald-950/40 px-4 py-1 rounded-full border border-emerald-800/30">
+          Envío gratis • Ahorras $800
         </span>
       </div>
 
-      {/* Header */}
-      <div className="flex items-start gap-6 mb-8">
-        <div className="w-24 h-24 bg-gradient-to-br from-slate-800 to-slate-900 rounded-2xl border border-slate-700/50 flex items-center justify-center shadow-xl">
-          {/* Placeholder para imagen del producto */}
-          <div className="text-center">
-            <div className="w-12 h-12 mx-auto bg-gradient-to-br from-emerald-500/20 to-teal-500/20 rounded-xl flex items-center justify-center mb-1">
-              <Activity size={24} className="text-emerald-400" />
-            </div>
-            <span className="text-[10px] text-slate-500">Body Scan</span>
-          </div>
-        </div>
-        
-        <div className="flex-1">
-          <h3 className="text-2xl font-light text-white mb-2">
-            Withings Body Scan
-          </h3>
-          <p className="text-slate-400 text-sm leading-relaxed mb-3">
-            Báscula inteligente con ECG clínico de 6 derivaciones y análisis segmental de composición corporal. 
-            Compatible nativamente con tu dashboard Curie.
-          </p>
-          <div className="flex items-center gap-4">
-            <span className="text-3xl font-light text-emerald-400">$5,499 MXN</span>
-            <span className="text-sm text-slate-500 line-through">$6,299</span>
-            <span className="text-xs bg-emerald-500/10 text-emerald-400 px-2 py-1 rounded-full border border-emerald-500/20">
-              Envío gratis
-            </span>
-          </div>
-        </div>
-      </div>
-
-      {/* Features grid rápido */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-8">
-        {features.map((feature, idx) => (
-          <div key={idx} className="bg-slate-900/50 border border-slate-700/30 rounded-xl p-3 text-center hover:border-emerald-500/30 transition-colors">
-            <feature.icon size={20} className="mx-auto text-emerald-400 mb-2" />
-            <div className="text-xs font-medium text-slate-200">{feature.label}</div>
-            <div className="text-[10px] text-slate-500 mt-0.5">{feature.desc}</div>
-          </div>
+      {/* Features – más espaciadas y elegantes */}
+      <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-10">
+        {features.map((f, i) => (
+          <motion.div
+            key={i}
+            whileHover={{ scale: 1.05, borderColor: 'rgba(16,185,129,0.4)' }}
+            className="bg-slate-900/40 border border-slate-700/40 rounded-2xl p-4 text-center transition-all duration-300"
+          >
+            <f.icon size={28} className="mx-auto text-emerald-400 mb-3" />
+            <div className="text-sm font-medium text-white">{f.label}</div>
+            <div className="text-xs text-slate-400 mt-1">{f.desc}</div>
+          </motion.div>
         ))}
       </div>
 
-      {/* Toggle detalles técnicos */}
-      <button 
+      {/* Toggle specs */}
+      <button
         onClick={() => setShowDetails(!showDetails)}
-        className="w-full flex items-center justify-between py-3 px-4 bg-slate-900/30 rounded-xl border border-slate-700/30 hover:bg-slate-900/50 transition-all mb-6 text-sm text-slate-300"
+        className="w-full flex items-center justify-between py-4 px-6 bg-slate-900/50 rounded-2xl border border-slate-700/50 hover:border-emerald-500/40 transition-all mb-8"
       >
-        <span>Especificaciones técnicas</span>
-        <ChevronRight 
-          size={16} 
-          className={`text-slate-500 transition-transform ${showDetails ? 'rotate-90' : ''}`} 
+        <span className="text-slate-200 font-medium">Ver especificaciones técnicas</span>
+        <ChevronRight
+          size={20}
+          className={`text-slate-400 transition-transform ${showDetails ? 'rotate-90' : ''}`}
         />
       </button>
 
       {showDetails && (
-        <div className="grid grid-cols-2 gap-4 mb-8 p-4 bg-slate-950/50 rounded-xl border border-slate-800/50 animate-in slide-in-from-top-2">
-          {Object.entries(specs).map(([key, value]) => (
-            <div key={key} className="flex flex-col">
-              <span className="text-[10px] uppercase tracking-wider text-slate-500 mb-1">{key}</span>
-              <span className="text-sm text-slate-300">{value}</span>
-            </div>
-          ))}
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-10 p-6 bg-slate-950/60 rounded-2xl border border-slate-800/50">
+          <div>
+            <span className="text-xs uppercase text-slate-500">Peso soportado</span>
+            <p className="text-slate-200 font-medium">5 – 200 kg (±50 g)</p>
+          </div>
+          <div>
+            <span className="text-xs uppercase text-slate-500">Batería</span>
+            <p className="text-slate-200 font-medium">Hasta 12 meses</p>
+          </div>
+          <div>
+            <span className="text-xs uppercase text-slate-500">Conectividad</span>
+            <p className="text-slate-200 font-medium">WiFi + Bluetooth</p>
+          </div>
+          <div>
+            <span className="text-xs uppercase text-slate-500">Pantalla</span>
+            <p className="text-slate-200 font-medium">Color 2.8" LCD</p>
+          </div>
         </div>
       )}
 
-      {/* CTA Buttons */}
-      <div className="space-y-3">
+      {/* CTA principal – pulso sutil */}
+      <motion.a
+        href={clipPaymentUrl}
+        target="_blank"
+        rel="noopener noreferrer"
+        whileHover={{ scale: 1.03 }}
+        whileTap={{ scale: 0.98 }}
+        className="block w-full py-6 px-8 bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-bold text-lg rounded-2xl transition-all duration-300 shadow-2xl shadow-emerald-900/50 hover:shadow-emerald-700/70 flex items-center justify-center gap-3 relative overflow-hidden"
+      >
+        <span className="relative z-10 flex items-center gap-3">
+          Comprar ahora por $5,499 MXN
+          <Truck size={20} />
+        </span>
+        <span className="absolute inset-0 bg-gradient-to-r from-white/10 to-transparent opacity-0 hover:opacity-100 transition-opacity" />
+      </motion.a>
+
+      {/* Opciones secundarias */}
+      <div className="grid grid-cols-2 gap-4 mt-4">
         <a
-          href={clipPaymentUrl}
+          href={affiliateWithingsUrl}
           target="_blank"
           rel="noopener noreferrer"
-          className="w-full flex items-center justify-center gap-3 py-4 px-6 bg-gradient-to-r from-emerald-600/90 to-teal-600/90 hover:from-emerald-500 hover:to-teal-500 text-black font-bold rounded-2xl transition-all shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:shadow-[0_0_50px_rgba(20,184,166,0.4)] uppercase tracking-wider text-sm"
+          className="py-4 px-6 bg-slate-900/60 border border-slate-700 rounded-2xl text-center text-slate-300 hover:text-white hover:border-slate-500 transition-all"
         >
-          <span>Comprar ahora</span>
-          <span className="text-xs opacity-70">via Clip</span>
+          Ver en Withings
         </a>
-
-        <div className="flex gap-3">
-          <a
-            href={affiliateWithingsUrl}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex-1 py-3 px-4 bg-slate-900/50 border border-slate-700/30 rounded-xl text-sm text-slate-400 hover:text-white hover:border-slate-600 transition-all text-center"
-          >
-            Ver en Withings.com
-          </a>
-          
-          <button className="flex-1 py-3 px-4 bg-slate-900/50 border border-slate-700/30 rounded-xl text-sm text-slate-400 hover:text-white hover:border-slate-600 transition-all">
-            Comparar modelos
-          </button>
-        </div>
+        <button className="py-4 px-6 bg-slate-900/60 border border-slate-700 rounded-2xl text-center text-slate-300 hover:text-white hover:border-slate-500 transition-all">
+          Comparar modelos
+        </button>
       </div>
 
-      {/* Trust badges */}
-      <div className="flex items-center justify-center gap-6 mt-6 pt-6 border-t border-slate-700/30">
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <Truck size={14} className="text-emerald-500" />
-          Envío 24-48h
+      {/* Trust line – minimal y elegante */}
+      <div className="flex justify-center gap-8 mt-10 pt-8 border-t border-slate-800/50 text-xs text-slate-500">
+        <div className="flex items-center gap-2">
+          <Truck size={16} className="text-emerald-500" />
+          Envío 24-48 h
         </div>
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <ShieldCheck size={14} className="text-emerald-500" />
+        <div className="flex items-center gap-2">
+          <ShieldCheck size={16} className="text-emerald-500" />
           Garantía 2 años
         </div>
-        <div className="flex items-center gap-2 text-xs text-slate-500">
-          <RefreshCw size={14} className="text-emerald-500" />
-          Devolución 30 días
+        <div className="flex items-center gap-2">
+          <RefreshCw size={16} className="text-emerald-500" />
+          30 días devolución
         </div>
       </div>
 
-      {/* Nota de integración */}
-      <div className="mt-6 p-4 bg-emerald-500/5 border border-emerald-500/10 rounded-xl">
-        <div className="flex items-start gap-3">
-          <div className="w-2 h-2 bg-emerald-500 rounded-full mt-2 animate-pulse" />
-          <div>
-            <p className="text-sm text-emerald-200/80 font-medium">
-              Integración automática con Curie
-            </p>
-            <p className="text-xs text-slate-400 mt-1">
-              Tus datos de Body Scan aparecerán automáticamente en tu dashboard médico. 
-              Compatibilidad certificada con Withings API.
-            </p>
-          </div>
+      {/* Integración nota – pulso vivo */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ delay: 0.8 }}
+        className="mt-8 p-5 bg-emerald-950/30 border border-emerald-800/30 rounded-2xl flex items-start gap-4"
+      >
+        <div className="relative mt-1">
+          <div className="w-4 h-4 bg-emerald-500 rounded-full animate-pulse" />
+          <div className="absolute inset-0 bg-emerald-500/30 rounded-full animate-ping" />
         </div>
-      </div>
-    </section>
+        <div>
+          <p className="text-emerald-300 font-medium">Integración nativa con Curie</p>
+          <p className="text-slate-400 text-sm mt-1">
+            Tus datos aparecerán en tiempo real en tu dashboard. Sin apps extras. Certificado por Withings API.
+          </p>
+        </div>
+      </motion.div>
+    </motion.section>
   );
 }

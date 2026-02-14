@@ -1,0 +1,12 @@
+{
+  "crons": [
+    {
+      "path": "/api/cron/process-sync-jobs",
+      "schedule": "*/15 * * * *"
+    },
+    {
+      "path": "/api/cron/rotate-tokens",
+      "schedule": "0 3 * * 0"
+    }
+  ]
+}

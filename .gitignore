@@ -39,3 +39,38 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Prisma (archivos generados - opcional pero recomendado)
+/prisma/migrations/migration_lock.toml
+
+# Logs de sistema
+*.log
+logs/
+
+# IDE/Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS específico
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Archivos temporales
+*.tmp
+*.temp
+.cache/
+
+# Backup files
+*.bak
+*.backup
+*~
+
+# Coverage y testing
+.nyc_output/
+coverage/
+
+# Storybook (si lo usas)
+storybook-static/

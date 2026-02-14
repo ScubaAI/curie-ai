@@ -1,7 +1,6 @@
-// schema.prisma
 generator client {
   provider        = "prisma-client-js"
-  previewFeatures = ["driverAdapters", "fullTextSearch", "fullTextIndex"]
+  previewFeatures = ["fullTextSearchPostgres"]
 }
 
 datasource db {
@@ -14,26 +13,33 @@ datasource db {
 // ENUMS
 // ============================================================================
 
-enum MetricType {
-  DEPTH
-  WATER_TEMPERATURE
-  DECO_STOP
-  DIVE_TIME
-  ASCENT_RATE
-  SURFACE_INTERVAL
-  GAS_MIX
-  HEART_RATE
-  HEART_RATE_VARIABILITY
-  SPO2
-  BLOOD_PRESSURE_SYSTOLIC
-  BLOOD_PRESSURE_DIASTOLIC
-  BLOOD_GLUCOSE
-  KETONES
-  LACTATE
-  POWER_OUTPUT
-  CADENCE
-  SPEED
-  ALTITUDE
+enum UserRole {
+  PATIENT
+  DOCTOR
+  ADMIN
+  STAFF
+}
+
+enum Provider {
+  LOCAL
+  GOOGLE
+  APPLE
+  WITHINGS
+}
+
+enum ActivityLevel {
+  SEDENTARY
+  LIGHTLY_ACTIVE
+  MODERATELY_ACTIVE
+  VERY_ACTIVE
+  EXTREMELY_ACTIVE
+}
+
+enum Gender {
+  MALE
+  FEMALE
+  OTHER
+  PREFER_NOT_TO_SAY
 }
 
 enum DataSource {
@@ -51,378 +57,1013 @@ enum DataSource {
   APPLE_WATCH_ULTRA
   APPLE_WATCH_S9
   WHOOP_4
-  OURA_RING_3
+  OURARING_3
   SHEARWATER_PERDIX
   SHEARWATER_PETREL
   SHEARWATER_TERIC
   SUUNTO_D5
   SUUNTO_EON_CORE
+  WITHINGS_BODY_COMP
+  WITHINGS_BPM
+  WITHINGS_SLEEP
+  WITHINGS_ACTIVITY
   MANUAL_ENTRY
   IMPORT_CSV
   API_INTEGRATION
   LAB_ANALYSIS
-  WITHINGS_B2B
-  WITHINGS_API
 }
 
-enum ActivityLevel {
-  SEDENTARY
-  LIGHTLY_ACTIVE
-  MODERATELY_ACTIVE
-  VERY_ACTIVE
-  EXTREMELY_ACTIVE
+enum MeasurementType {
+  WEIGHT
+  BODY_FAT_PERCENTAGE
+  MUSCLE_MASS
+  BONE_MASS
+  WATER_PERCENTAGE
+  VISCERAL_FAT
+  BMI
+  BASAL_METABOLIC_RATE
+  HEART_RATE
+  HEART_RATE_VARIABILITY
+  BLOOD_PRESSURE_SYSTOLIC
+  BLOOD_PRESSURE_DIASTOLIC
+  BLOOD_OXYGEN
+  BODY_TEMPERATURE
+  SKIN_TEMPERATURE
+  RESPIRATORY_RATE
+  SLEEP_DURATION
+  SLEEP_QUALITY
+  STEPS
+  CALORIES_BURNED
+  ACTIVE_MINUTES
+  DISTANCE
+  FLOORS_CLIMBED
+  CADENCE
+  SPEED
+  VO2MAX
+  RECOVERY_SCORE
+  STRESS_LEVEL
+  BLOOD_GLUCOSE
+  KETONES
+  LACTATE
+  CHOLESTEROL
+  HDL
+  LDL
+  TRIGLYCERIDES
+  HBA1C
+  C_REACTIVE_PROTEIN
+  VITAMIN_D
+  CORTISOL
+  TESTOSTERONE
+  ESTROGEN
+  TSH
+  CREATININE
+  GFR
+  ALT
+  AST
+  ALP
+  GGT
+  BILIRUBIN
+  WHITE_BLOOD_CELL
+  RED_BLOOD_CELL
+  HEMOGLOBIN
+  HEMATOCRIT
+  PLATELETS
+}
+
+enum WearableProvider {
+  WITHINGS
+  GARMIN
+  APPLE_HEALTH
+  GOOGLE_FIT
+  FITBIT
+  WHOOP
+  OURARING
+  SAMSUNG_HEALTH
+}
+
+enum LabResultStatus {
+  NORMAL
+  ABNORMAL
+  CRITICAL
+  PENDING_REVIEW
+  NEEDS_FOLLOWUP
+}
+
+enum AppointmentStatus {
+  SCHEDULED
+  COMPLETED
+  CANCELLED
+  NO_SHOW
+  RESCHEDULED
+}
+
+enum NoteCategory {
+  GENERAL
+  CONSULTATION
+  FOLLOW_UP
+  PRESCRIPTION
+  LAB_REVIEW
+  TREATMENT_PLAN
+  PROGRESS
+  REFERRAL
+  EMERGENCY
+}
+
+enum SyncJobStatus {
+  PENDING
+  PROCESSING
+  COMPLETED
+  FAILED
+  RETRYING
 }
 
 enum EventSeverity {
-  CRITICAL
-  WARNING
   INFO
-  DEBUG
+  LOW
+  MEDIUM
+  HIGH
+  ERROR
+  CRITICAL
 }
 
 enum EventType {
-  DECO_VIOLATION
-  ASCENT_RATE_EXCEEDED
-  LOW_GAS_ALARM
-  DIVE_EMERGENCY
-  HEART_RATE_ANOMALY
-  HRV_LOW
-  SPO2_CRITICAL
-  TEMPERATURE_ANOMALY
-  SIGNIFICANT_WEIGHT_CHANGE
-  MUSCLE_GAIN_DETECTED
-  MUSCLE_LOSS_DETECTED
-  BODY_FAT_THRESHOLD
-  DATA_CONFLICT
+  SYSTEM_STATUS
+  TOKEN_ROTATION_SUCCESS
+  TOKEN_ROTATION_FAILURE
   SYNC_COMPLETED
-  NEW_DATA_AVAILABLE
-  CHAT_SESSION_STARTED
+  SYNC_FAILED
+  ONBOARDING_COMPLETED
+  SECURITY_ALERT
+  API_ERROR
+  DATABASE_MAINTENANCE
 }
 
 enum ChatMessageRole {
+  SYSTEM
   USER
   ASSISTANT
-  SYSTEM
-  EVENT
 }
 
-enum DocumentType {
-  NUTRITION
-  WORKOUT
-  PRESCRIPTION
-  LAB_RESULT
-  OTHER
+enum MetricType {
+  DEPTH
+  DIVE_TIME
+  WATER_TEMPERATURE
+  BLOOD_GLUCOSE
+  DECO_STOP
+  HEART_RATE
+  SPO2
+  HRV
+  TEMPERATURE
+  ASCENT_RATE
+}
+
+enum ProductCategory {
+  WEARABLE
+  SCALE
+  SENSOR
+  ACCESSORY
+}
+
+enum CurieIntegrationLevel {
+  NATIVE // Sync automático vía API oficial
+  API // Sync vía integración propia (polling/webhooks)
+  MANUAL // Paciente ingresa datos manualmente
+  PLANNED // En roadmap, no disponible aún
+}
+
+enum ProductStockStatus {
+  IN_STOCK
+  OUT_OF_STOCK
+  PRE_ORDER
 }
 
 // ============================================================================
-// MODELOS PRINCIPALES
+// USER AUTHENTICATION MODELS
 // ============================================================================
+
+model User {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  password      String?   @db.Text // Opcional para OAuth, requerido para email/password
+  emailVerified DateTime?
+  name          String?
+  firstName     String?
+  lastName      String?
+  image         String?
+  role          UserRole  @default(PATIENT)
+  phone         String?
+  dateOfBirth   DateTime?
+  gender        Gender?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  lastLoginAt   DateTime?
+
+  accounts Account[]
+  sessions Session[]
+  patient  Patient?
+  doctor   Doctor?
+
+  @@index([email])
+  @@index([role])
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String? @db.Text
+  access_token      String? @db.Text
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String? @db.Text
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+  @@index([userId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+  user         User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
 
 model Patient {
-  id                String   @id @default(cuid())
-  name              String
-  email             String   @unique
-  age               Int?
-  height            Float?
-  targetWeight      Float?
-  activityLevel     ActivityLevel @default(MODERATELY_ACTIVE)
-  lastChatAt        DateTime?
-  lastProcessedAt   DateTime?
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
-  
-  // Withings
-  withingsUserId    String?   @unique
-  withingsToken     String?
-  withingsRefresh   String?
-  withingsExpires   DateTime?
-  withingsConnectedAt DateTime?
-  
-  // Relaciones
-  compositions      CompositionRecord[]
-  biometrics        BiometricSnapshot[]
-  labResults        LabResult[]
-  prescriptions     Prescription[]
-  metrics           MetricLog[]
-  chatSessions      ChatSession[]
-  systemEvents      SystemEvent[]
-  protocolDocuments ProtocolDocument[]
-  documentAccessLogs DocumentAccessLog[]
-  advisorSessions   AdvisorSession[]
-  
-  @@index([email])
-  @@index([lastChatAt])
+  id     String  @id @default(cuid())
+  userId String  @unique
+  mrn    String? @unique
+
+  dateOfBirth DateTime?
+  gender      Gender?
+  phone       String?
+  address     String?
+  city        String?
+  state       String?
+  zipCode     String?
+  country     String?   @default("GT")
+
+  emergencyContactName     String?
+  emergencyContactPhone    String?
+  emergencyContactRelation String?
+
+  allergies     String[] @default([])
+  medications   String[] @default([])
+  conditions    String[] @default([])
+  surgeries     String[] @default([])
+  familyHistory String[] @default([])
+
+  smokingStatus      String?
+  alcoholConsumption String?
+  exerciseFrequency  String?
+  dietPreferences    String[] @default([])
+
+  primaryGoal      String?
+  targetWeight     Float?
+  targetBodyFat    Float?
+  targetMuscleMass Float?
+
+  activityLevel ActivityLevel @default(MODERATELY_ACTIVE)
+
+  onboardingStep      Int       @default(0)
+  onboardingCompleted Boolean   @default(false)
+  onboardingSkippedAt DateTime?
+
+  heightCm       Float?
+  targetWeightKg Float?
+
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @updatedAt
+  lastSyncAt DateTime?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  wearables    WearableConnection[]
+  measurements Measurement[]
+  labResults   LabResult[]
+  compositions CompositionRecord[]
+  biometrics   BiometricSnapshot[]
+  appointments Appointment[]
+  doctorNotes  DoctorNote[]
+  documents    MedicalDocument[]
+  careTeam     DoctorPatientRelationship[]
+  vitalLogs    VitalLog[]
+  syncJobs     SyncJob[]
+  chatSessions ChatSession[]
+  lastChatAt   DateTime?
+  metricLogs      MetricLog[]
+  recommendations PatientProductRecommendation[]
+  ownedDevices    PatientDevice[]
+
+  @@index([mrn])
+  @@index([userId])
+  @@index([onboardingCompleted])
+  @@index([onboardingStep])
+  @@index([lastSyncAt]) // ← AÑADIDO: consultas rápidas por última sync
+  @@index([createdAt(sort: Desc)]) // ← AÑADIDO: listas recientes de pacientes
+}
+
+model WearableConnection {
+  id          String           @id @default(cuid())
+  patientId   String
+  provider    WearableProvider
+  externalId  String?
+  deviceName  String?
+  deviceModel String?
+  deviceId    String?
+
+  accessToken    String?   @db.Text
+  refreshToken   String?   @db.Text
+  tokenExpiresAt DateTime?
+  scope          String?
+
+  isActive           Boolean   @default(true)
+  lastSyncAt         DateTime?
+  lastSuccessfulSync DateTime?
+  syncError          String?
+
+  // Rotation fields
+  tokenVersion       Int?
+  lastRotatedAt      DateTime?
+  rotationRetryCount Int       @default(0)
+
+  connectedAt    DateTime  @default(now())
+  disconnectedAt DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, provider])
+  @@index([patientId])
+  @@index([provider])
+  @@index([isActive])
+  @@index([isActive, lastSyncAt])
+  @@index([provider, lastSyncAt])
+  @@index([isActive, tokenVersion, lastRotatedAt(sort: Asc)]) // ← AÑADIDO: optimización para cron de rotación
+  @@index([tokenVersion, lastRotatedAt]) // ← AÑADIDO
+  @@index([lastSuccessfulSync]) // ← AÑADIDO: monitoreo de salud de conexiones
+}
+
+model SyncJob {
+  id              String           @id @default(cuid())
+  patientId       String
+  provider        WearableProvider
+  status          SyncJobStatus    @default(PENDING)
+  startedAt       DateTime         @default(now())
+  completedAt     DateTime?
+  errorMessage    String?
+  recordsImported Int              @default(0)
+  retryCount      Int              @default(0)
+  nextRetryAt     DateTime?
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, provider, startedAt(sort: Desc)])
+  @@index([status, startedAt])
+  @@index([nextRetryAt])
+}
+
+model Measurement {
+  id        String          @id @default(cuid())
+  patientId String
+  type      MeasurementType
+  value     Float
+  unit      String?
+
+  source      DataSource?
+  deviceId    String?
+  deviceModel String?
+  location    String?
+
+  measuredAt DateTime @default(now())
+  timezone   String?
+
+  isManualEntry Boolean @default(false)
+  isVerified    Boolean @default(false)
+  qualityScore  Float?
+
+  aiInsights  String? @db.Text
+  aiRiskScore Float?
+
+  metadata Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, source, measuredAt, type], name: "unique_measurement")
+  @@index([patientId, type, measuredAt(sort: Desc)])
+  @@index([patientId, measuredAt(sort: Desc)])
+  @@index([type])
+  @@index([source])
+  @@index([patientId, type]) // ← AÑADIDO: gráficos por tipo de métrica
 }
 
 model CompositionRecord {
-  id              String     @id @default(cuid())
-  patientId       String
-  date            DateTime   @default(now())
-  weight          Float
-  smm             Float
-  pbf             Float
-  bodyFatMass     Float
-  totalBodyWater  Float
-  protein         Float
-  minerals        Float
-  bmr             Int
-  vfl             Int
-  phaseAngle      Float
-  waistHipRatio   Float?
-  rightArmMuscle  Float?
-  leftArmMuscle   Float?
-  trunkMuscle     Float?
-  rightLegMuscle  Float?
-  leftLegMuscle   Float?
-  // @default(WITHINGS_API) when data comes from Withings Body Scan
-  source          DataSource @default(INBODY_270)
-  deviceId        String?
-  isLatest        Boolean    @default(false)
-  notes           String?
-  
-  patient         Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  @@index([patientId, isLatest])
-  @@index([patientId, date(sort: Desc)])
+  id         String     @id @default(cuid())
+  patientId  String
+  measuredAt DateTime   @default(now())
+  source     DataSource @default(MANUAL_ENTRY)
+  deviceId   String?
+
+  weight      Float
+  bodyFatMass Float?
+  leanMass    Float?
+  muscleMass  Float?
+  boneMass    Float?
+
+  bodyFatPercentage Float?
+  waterPercentage   Float?
+  visceralFatRating Float?
+
+  rightArmFat    Float?
+  leftArmFat     Float?
+  trunkFat       Float?
+  rightLegFat    Float?
+  leftLegFat     Float?
+  rightArmMuscle Float?
+  leftArmMuscle  Float?
+  trunkMuscle    Float?
+  rightLegMuscle Float?
+  leftLegMuscle  Float?
+
+  bmr                Float?
+  waistCircumference Float?
+  hipCircumference   Float?
+  waistHipRatio      Float?
+  phaseAngle         Float?
+
+  aiInsights  String?  @db.Text
+  aiRiskFlags String[] @default([])
+
+  notes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, measuredAt(sort: Desc)])
+  @@index([patientId])
+  @@index([source])
 }
 
 model BiometricSnapshot {
-  id            String     @id @default(cuid())
-  patientId     String
-  bpm           Int?
-  hrv           Float?
-  hrvStatus     String?
-  spo2          Float?
-  bloodPressureSystolic   Int?
-  bloodPressureDiastolic  Int?
-  temperature   Float?
-  skinTemp      Float?
+  id         String     @id @default(cuid())
+  patientId  String
+  recordedAt DateTime   @default(now())
+  source     DataSource
+
+  heartRate            Int?
+  heartRateVariability Float?
+  restingHeartRate     Int?
+  maxHeartRate         Int?
+
+  bloodPressureSystolic  Int?
+  bloodPressureDiastolic Int?
+  bloodOxygen            Float?
+
+  bodyTemperature Float?
+  skinTemperature Float?
+
   steps         Int?
   calories      Int?
   activeMinutes Int?
-  sleepScore    Int?
+  distance      Float?
+  floors        Int?
+
+  sleepDuration     Int?
+  sleepScore        Int?
+  deepSleepMinutes  Int?
+  remSleepMinutes   Int?
+  lightSleepMinutes Int?
+  awakeTime         Int?
+
   recoveryScore Int?
-  stressLevel   Int?
-  recordedAt    DateTime   @default(now())
-  source        DataSource
-  deviceId      String?
-  isSynced      Boolean    @default(false)
-  
-  patient       Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
+  stressScore   Int?
+  hrvBalance    Float?
+
+  respiratoryRate Int?
+
+  deviceId   String?
+  deviceName String?
+
+  rawData Json?
+
+  aiInsights String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
   @@index([patientId, recordedAt(sort: Desc)])
+  @@index([patientId])
+  @@index([source])
+  @@index([recordedAt])
 }
 
-model MetricLog {
-  id          String     @id @default(cuid())
-  patientId   String
-  type        MetricType
-  value       Float
-  unit        String
-  startedAt   DateTime   @default(now())
-  endedAt     DateTime?
-  duration    Int?
-  metadata    Json?
-  location    Json?
-  source      DataSource
-  deviceId    String?
-  isProcessed Boolean    @default(false)
-  hasAlert    Boolean    @default(false)
-  
-  patient     Patient    @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  @@index([patientId, type, startedAt(sort: Desc)])
+model VitalLog {
+  id         String          @id @default(cuid())
+  patientId  String
+  type       MeasurementType
+  value      Float
+  unit       String?
+  source     DataSource?
+  measuredAt DateTime        @default(now())
+  deviceId   String?
+  notes      String?
+
+  aiInsights String? @db.Text
+
+  createdAt DateTime @default(now())
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, type, measuredAt(sort: Desc)])
+  @@index([patientId])
+  @@index([measuredAt])
 }
 
 model LabResult {
-  id            String   @id @default(cuid())
-  patientId     String
-  name          String
-  category      String
-  value         Float
-  unit          String
-  referenceMin  Float?
-  referenceMax  Float?
-  status        String
-  flagged       Boolean  @default(false)
-  date          DateTime @default(now())
-  labName       String?
-  notes         String?
-  
-  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  @@index([patientId, date(sort: Desc)])
+  id         String  @id @default(cuid())
+  patientId  String
+  labName    String?
+  labAddress String?
+
+  testName    String
+  testCode    String?
+  category    String?
+  subcategory String?
+
+  value          Float
+  unit           String?
+  referenceMin   Float?
+  referenceMax   Float?
+  referenceRange String?
+
+  status     LabResultStatus @default(PENDING_REVIEW)
+  isFlagged  Boolean         @default(false)
+  flagReason String?
+
+  aiSummary         String?  @db.Text
+  aiInterpretation  String?  @db.Text
+  aiRecommendations String[]
+  aiFlagged         Boolean  @default(false)
+
+  documentUrl String?
+  documentId  String?
+
+  collectedAt DateTime?
+  reportedAt  DateTime  @default(now())
+  reviewedAt  DateTime?
+  reviewedBy  String?
+
+  notes        String? @db.Text
+  patientNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, reportedAt(sort: Desc)])
+  @@index([patientId])
+  @@index([testName])
+  @@index([category])
+  @@index([status])
+  @@index([isFlagged])
 }
 
-model Prescription {
-  id            String   @id @default(cuid())
-  patientId     String
-  medication    String
-  dosage        String
-  frequency     String
-  prescribedBy  String
-  prescribedAt  DateTime @default(now())
-  validUntil    DateTime?
-  notes         String?
-  isActive      Boolean  @default(true)
-  documentUrl   String?
-  
-  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  @@index([patientId, isActive])
+model MedicalDocument {
+  id        String @id @default(cuid())
+  patientId String
+
+  title       String
+  type        String
+  description String?
+  category    String?
+
+  fileUrl  String
+  fileName String?
+  fileSize Int?
+  mimeType String?
+  checksum String?
+
+  ocrText         String? @db.Text
+  aiExtractedData Json?
+  aiSummary       String? @db.Text
+
+  isConfidential Boolean @default(true)
+  isArchived     Boolean @default(false)
+
+  uploadedAt DateTime  @default(now())
+  expiresAt  DateTime?
+  archivedAt DateTime?
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, uploadedAt(sort: Desc)])
+  @@index([patientId])
+  @@index([type])
+  @@index([uploadedAt])
+}
+
+model Doctor {
+  id     String @id @default(cuid())
+  userId String @unique
+
+  licenseNumber  String?
+  specialty      String?
+  subspecialties String[] @default([])
+  qualification  String[]
+
+  clinicName      String?
+  clinicAddress   String?
+  clinicPhone     String?
+  consultationFee Float?
+
+  bio               String? @db.Text
+  profileImage      String?
+  yearsOfExperience Int?
+
+  acceptingPatients Boolean  @default(true)
+  languages         String[] @default(["es", "en"])
+
+  isActive   Boolean @default(true)
+  isVerified Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user         User                        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  patients     DoctorPatientRelationship[]
+  appointments Appointment[]
+  notes        DoctorNote[]
+
+  @@index([userId])
+  @@index([specialty])
+  @@index([isActive])
+  @@index([acceptingPatients])
+}
+
+model DoctorPatientRelationship {
+  id        String @id @default(cuid())
+  patientId String
+  doctorId  String
+
+  relationshipType String
+  specialty        String?
+  referredBy       String?
+
+  status    String  @default("active")
+  isPrimary Boolean @default(false)
+
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+
+  referralNotes String? @db.Text
+  internalNotes String? @db.Text
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, doctorId])
+  @@index([patientId])
+  @@index([doctorId])
+  @@index([status])
+}
+
+model Appointment {
+  id        String @id @default(cuid())
+  patientId String
+  doctorId  String
+
+  scheduledAt DateTime
+  duration    Int?
+  timezone    String   @default("America/Guatemala")
+
+  type   String
+  reason String?
+  notes  String? @db.Text
+
+  status             AppointmentStatus @default(SCHEDULED)
+  cancelledAt        DateTime?
+  cancellationReason String?
+
+  isVirtual  Boolean @default(false)
+  meetingUrl String?
+  location   String?
+
+  reminderSentAt DateTime?
+  reminderSentTo String?
+
+  followUpRequired Boolean @default(false)
+  followUpNotes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor  Doctor  @relation(fields: [doctorId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, scheduledAt])
+  @@index([doctorId, scheduledAt])
+  @@index([status])
+  @@index([scheduledAt])
+}
+
+model DoctorNote {
+  id        String  @id @default(cuid())
+  patientId String
+  doctorId  String?
+
+  category NoteCategory @default(GENERAL)
+  title    String?
+  content  String       @db.Text
+
+  diagnosis String[] @default([])
+  treatment String?  @db.Text
+  plan      String?  @db.Text
+
+  vitals Json?
+
+  isPrivate Boolean   @default(false)
+  isPinned  Boolean   @default(false)
+  isSigned  Boolean   @default(false)
+  signedAt  DateTime?
+
+  attachments String[] @default([])
+
+  followUpDate  DateTime?
+  followUpNotes String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  doctor  Doctor? @relation(fields: [doctorId], references: [id], onDelete: SetNull)
+
+  @@index([patientId, createdAt(sort: Desc)])
+  @@index([doctorId])
+  @@index([category])
+  @@index([createdAt])
 }
 
 // ============================================================================
-// CHAT & EVENTS
+// SYSTEM UTILITIES & AUDIT
 // ============================================================================
+
+model CronLock {
+  name      String   @id
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model SystemEvent {
+  id          String        @id @default(cuid())
+  type        EventType
+  severity    EventSeverity @default(INFO)
+  title       String
+  description String?       @db.Text
+  data        Json?
+  isRead      Boolean       @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Trazabilidad adicional (para auditoría real)
+  createdBy String? // userId o 'system'
+  ipAddress String? // IP del origen (si aplica)
+
+  @@index([type])
+  @@index([severity])
+  @@index([createdAt(sort: Desc)])
+  @@index([isRead])
+  @@index([severity, createdAt(sort: Desc)]) // ← AÑADIDO: dashboard de errores críticos recientes
+}
 
 model ChatSession {
-  id          String   @id @default(cuid())
-  patientId   String
-  startedAt   DateTime @default(now())
-  endedAt     DateTime?
-  context     Json?
-  
-  messages    ChatMessage[]
-  
-  patient     Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
+  id        String    @id @default(cuid())
+  patientId String
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  metadata  Json?
+
+  messages ChatMessage[]
+  patient  Patient       @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
   @@index([patientId, startedAt(sort: Desc)])
 }
 
 model ChatMessage {
-  id          String          @id @default(cuid())
-  sessionId   String
-  role        ChatMessageRole
-  content     String          @db.Text
-  tokensUsed  Int?
-  model       String?
-  latencyMs   Int?
-  telemetryContext  Json?
+  id        String          @id @default(cuid())
+  sessionId String
+  role      ChatMessageRole
+  content   String          @db.Text
+  createdAt DateTime        @default(now())
+
+  // Metadata para análisis IA
+  tokensUsed         Int?
+  model              String?
+  latencyMs          Int?
+  telemetryContext   Json?
   patientDataContext Json?
-  triggeredEvents   String[]
-  createdAt   DateTime        @default(now())
-  
-  session     ChatSession     @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  
+  triggeredEvents    String[] @default([])
+
+  session ChatSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
   @@index([sessionId, createdAt])
 }
 
-model SystemEvent {
-  id          String       @id @default(cuid())
-  patientId   String
-  type        EventType
-  severity    EventSeverity
-  title       String
-  description String       @db.Text
-  data        Json?
-  isRead      Boolean      @default(false)
-  isProcessed Boolean      @default(false)
-  acknowledgedAt DateTime?
-  relatedMetrics String[]
-  relatedCompositions String[]
-  createdAt   DateTime     @default(now())
-  expiresAt   DateTime?
-  
-  patient     Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  @@index([patientId, createdAt(sort: Desc)])
-  @@index([type, isProcessed])
-}
+model MetricLog {
+  id        String     @id @default(cuid())
+  patientId String
+  type      MetricType
+  value     Float
+  unit      String?
 
-// ============================================================================
-// ARKANGEL ADVISOR (Dr. Chat)
-// ============================================================================
+  startedAt DateTime  @default(now())
+  endedAt   DateTime?
+  duration  Int? // Duración en segundos si aplica
 
-model AdvisorSession {
-  id            String   @id @default(cuid())
-  patientId     String
-  arkangelConvId String?
-  phaseAngleAtStart Float?
-  latestCompositionId String?
-  startedAt     DateTime @default(now())
-  endedAt       DateTime?
-  category      String?
-  actionsTaken  String[]
-  
-  messages      AdvisorMessage[]
-  
-  patient       Patient  @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
+  metadata Json?
+  location Json? // GeoJSON u objeto {lat, lng, site}
+
+  source      DataSource?
+  deviceId    String?
+  deviceModel String?
+
+  isProcessed Boolean @default(false)
+  hasAlert    Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, type, startedAt(sort: Desc)])
   @@index([patientId, startedAt(sort: Desc)])
-  @@index([arkangelConvId])
-}
-
-model AdvisorMessage {
-  id            String   @id @default(cuid())
-  sessionId     String
-  arkangelMsgId String?
-  role          String
-  content       String   @db.Text
-  sources       Json?
-  tokensUsed    Int?
-  createdAt     DateTime @default(now())
-  
-  session       AdvisorSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
-  
-  @@index([sessionId, createdAt])
+  @@index([hasAlert, startedAt])
 }
 
 // ============================================================================
-// DOCUMENTS
+// AUDIT LOG (opcional pero recomendado para cumplimiento)
 // ============================================================================
 
-model ProtocolDocument {
-  id            String       @id @default(cuid())
-  patientId     String
-  type          DocumentType
-  title         String
-  description   String?
-  fileUrl       String
-  fileSize      String?
-  checksum      String?
-  version       String       @default("1.0")
-  isLatest      Boolean      @default(true)
-  prescribedBy  String?
-  validUntil    DateTime?
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @updatedAt
-  lastAccessed  DateTime?
-  
-  patient       Patient      @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  accessLogs    DocumentAccessLog[]
-  
-  @@index([patientId, type, isLatest])
+// Descomenta cuando estés listo para implementarlo
+/**
+ * model AuditLog {
+ * id          String   @id @default(cuid())
+ * userId      String?
+ * action      String   // "LOGIN", "DECRYPT_TOKEN", "VIEW_PATIENT", "MARK_READ_EVENT"
+ * entityId    String?  // patientId, eventId, wearableConnectionId, etc.
+ * ipAddress   String?
+ * success     Boolean
+ * details     Json?
+ * createdAt   DateTime @default(now())
+ * @@index([userId, createdAt(sort: Desc)])
+ * @@index([action, createdAt])
+ * @@index([entityId])
+ * }
+ */
+// ============================================================================
+// CURIE SHOP - Productos y Recomendaciones (NUEVO)
+// ============================================================================
+
+model Product {
+  id              String                @id @default(cuid())
+  slug            String                @unique
+  name            String
+  brand           String
+  description     String                @db.Text
+  longDescription String?               @db.Text
+  priceMXN        Int
+  originalPriceMXN Int?
+  currency        String                @default("MXN")
+  image           String
+  images          String[]
+  category        ProductCategory
+  tags            String[]
+  features        Json? // Array de {icon, label, description}
+  specs           Json? // Record<string, string>
+  stockStatus     ProductStockStatus    @default(IN_STOCK)
+  connectivity    String[] // ['bluetooth', 'wifi', 'cellular']
+  rating          Float?
+  reviewCount     Int                   @default(0)
+  // URLs de compra
+  clipPaymentUrl  String?
+  affiliateUrl    String?
+  // Integración con Curie (lo más importante)
+  curieIntegrationLevel CurieIntegrationLevel @default(MANUAL)
+  curieSyncFields       String[] // Qué datos sincroniza
+  curieSyncFrequency    String? // 'real-time', 'hourly', 'daily', 'manual'
+  curieRequiresAuth     Boolean               @default(true)
+  curieScore            Int                   @default(0) // 0-100
+  // Metadatos mercado latino
+  availableInMX    Boolean   @default(true)
+  availableInCO    Boolean   @default(false)
+  availableInAR    Boolean   @default(false)
+  availableInCL    Boolean   @default(false)
+  availableInPE    Boolean   @default(false)
+  shippingDays     Int       @default(3)
+  warrantyMonths   Int       @default(12)
+  localDistributor String?
+  supportUrl       String?
+  // Control temporal
+  releaseDate DateTime?
+  isActive    Boolean   @default(true)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+
+  // Relaciones
+  recommendations PatientProductRecommendation[]
+  patientDevices  PatientDevice[]
+
+  @@index([category])
+  @@index([brand])
+  @@index([isActive])
+  @@index([curieIntegrationLevel])
+  @@index([availableInMX])
+  @@index([releaseDate])
+  @@index([isActive, category])
 }
 
-model DocumentAccessLog {
-  id          String   @id @default(cuid())
-  documentId  String
-  patientId   String
-  accessedAt  DateTime @default(now())
-  ipAddress   String?
-  userAgent   String?
-  
-  document    ProtocolDocument @relation(fields: [documentId], references: [id], onDelete: Cascade)
-  patient     Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
-  
-  @@index([documentId, accessedAt])
+model PatientProductRecommendation {
+  id        String @id @default(cuid())
+  patientId String
+  productId String
+
+  // Contexto de la recomendación
+  reason   String  @db.Text // "La recuperación es donde ocurre la magia"
+  score    Int     @default(0) // 0-100 relevancia
+  category String? // 'weight', 'sleep', 'heart', 'general'
+  urgency  String  @default("medium") // 'high', 'medium', 'low'
+
+  // Tracking de interacción
+  shownAt     DateTime  @default(now())
+  clickedAt   DateTime?
+  dismissedAt DateTime?
+  purchasedAt DateTime?
+
+  // Semilla del día (para reproducir el "factor sorpresa")
+  dailySeed Int?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+  product Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@unique([patientId, productId, shownAt]) // Un producto por día máximo
+  @@index([patientId, shownAt(sort: Desc)])
+  @@index([patientId, purchasedAt])
+  @@index([productId])
+  @@index([score])
 }
 
-// ============================================================================
-// CONFIG
-// ============================================================================
+// Conexión: Cuando un paciente COMPRA un producto (no solo wearable connection)
+model PatientDevice {
+  id        String  @id @default(cuid())
+  patientId String
+  productId String?
 
-model PatientConfig {
-  id              String   @id @default(cuid())
-  patientId       String   @unique
-  alertOnDecoViolation Boolean @default(true)
-  alertOnDataConflict  Boolean @default(true)
-  alertThresholdBPM    Int?
-  preferredUnitWeight  String  @default("kg")
-  preferredUnitHeight  String  @default("cm")
-  targetSMM           Float?
-  targetPBF           Float?
-  maxDepthAlert       Float?
-  updatedAt           DateTime @updatedAt
+  // Si es un producto de nuestra tienda
+  product Product? @relation(fields: [productId], references: [id])
+
+  // O si es dispositivo legacy/manual
+  deviceName  String?
+  deviceModel String?
+  deviceType  String? // 'scale', 'watch', 'ring', etc.
+
+  // Estado
+  isActive    Boolean   @default(true)
+  purchasedAt DateTime  @default(now())
+  connectedAt DateTime?
+  lastSyncAt  DateTime?
+
+  // Datos de conexión (si aplica)
+  connectionDetails Json?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  patient Patient @relation(fields: [patientId], references: [id], onDelete: Cascade)
+
+  @@index([patientId, isActive])
+  @@index([patientId, lastSyncAt])
+  @@index([productId])
 }

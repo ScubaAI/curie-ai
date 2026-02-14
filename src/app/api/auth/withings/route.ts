@@ -2,15 +2,15 @@
 import { NextResponse } from 'next/server';
 import crypto from 'crypto';
 
-const WITHINGS_CLIENT_ID = process.env.WITHINGS_CLIENT_ID!;
-const WITHINGS_REDIRECT_URI = process.env.WITHINGS_REDIRECT_URI!; // ← Esto estaba incompleto
+const WITHINGS_CLIENT_ID = process.env.WITHINGS_CLIENT_ID || '';
+const WITHINGS_REDIRECT_URI = process.env.WITHINGS_REDIRECT_URI || '';
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const patientId = searchParams.get('patientId');
 
   if (!patientId) {
-    return NextResponse.json({ error: 'patientId requerido' }, { status: 400 });
+    return NextResponse.json({ error: 'patientId required' }, { status: 400 });
   }
 
   const state = crypto.randomBytes(32).toString('hex');
@@ -22,5 +22,11 @@ export async function GET(request: Request) {
   withingsAuthUrl.searchParams.set('scope', 'user.metrics user.activity user.sleep');
   withingsAuthUrl.searchParams.set('state', `${state}:${patientId}`);
   
-  return NextResponse.redirect(withingsAuthUrl.toString());
+  // For frontend integration, return the URL instead of redirecting
+  // The frontend will handle the redirect
+  return NextResponse.json({
+    authUrl: withingsAuthUrl.toString(),
+    state,
+    patientId,
+  });
 }

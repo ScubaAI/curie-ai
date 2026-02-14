@@ -1,154 +1,208 @@
-import { PrismaClient, DataSource, ActivityLevel, EventSeverity, EventType } from '@prisma/client';
+// prisma/seed.ts
+import { PrismaClient } from '@prisma/client';
+import { hashPassword } from '../src/lib/auth/password';
 
 const prisma = new PrismaClient();
 
 async function main() {
-  console.log('🌱 Seeding database...');
+  console.log('🌱 Iniciando seed limpio y hermoso...');
 
-  // 1. Crear paciente Abraham
-  const abraham = await prisma.patient.upsert({
+  // 1. Crear paciente Bryan Jaramillo
+  const bryanPassword = await hashPassword('bryan123456');
+
+  const bryanUser = await prisma.user.upsert({
+    where: { email: 'bryan.jaramillo@email.com' },
+    update: {},
+    create: {
+      email: 'bryan.jaramillo@email.com',
+      password: bryanPassword,
+      firstName: 'Bryan',
+      lastName: 'Jaramillo',
+      name: 'Bryan Jaramillo',
+      role: 'PATIENT',
+    },
+  });
+
+  // Crear Patient relacionado
+  const bryanPatient = await prisma.patient.upsert({
+    where: { userId: bryanUser.id },
+    update: {},
+    create: {
+      userId: bryanUser.id,
+      dateOfBirth: new Date('1999-06-15'),
+      gender: 'MALE',
+      heightCm: 178,
+      targetWeightKg: 75,           // Ajusta si el campo cambió de nombre
+      activityLevel: 'MODERATELY_ACTIVE',
+      primaryGoal: 'Ganar masa muscular, reducir grasa visceral',
+      onboardingStep: 4,
+      onboardingCompleted: true,
+    },
+  });
+
+  // Crear composiciones de ejemplo (en CompositionRecord)
+  await prisma.compositionRecord.createMany({
+    data: [
+      {
+        patientId: bryanPatient.id,
+        measuredAt: new Date('2025-02-10'),
+        source: 'INBODY_970',
+        weight: 82.5,
+        bodyFatMass: 14.2,
+        leanMass: 68.3,
+        muscleMass: 38.5,
+        bodyFatPercentage: 17.2,
+        waterPercentage: 55.8,
+        visceralFatRating: 9,
+        bmr: 1820,
+        rightArmMuscle: 3.2,
+        leftArmMuscle: 3.1,
+        trunkMuscle: 22.5,
+        rightLegMuscle: 5.8,
+        leftLegMuscle: 5.7,
+        phaseAngle: 6.2,
+        notes: 'Medición inicial - buena base muscular',
+      },
+      {
+        patientId: bryanPatient.id,
+        measuredAt: new Date('2025-02-03'),
+        source: 'INBODY_970',
+        weight: 83.1,
+        bodyFatMass: 15.1,
+        leanMass: 68.0,
+        muscleMass: 38.2,
+        bodyFatPercentage: 18.2,
+        waterPercentage: 55.2,
+        visceralFatRating: 10,
+        bmr: 1835,
+        phaseAngle: 6.0,
+      },
+      // Agrega más si quieres...
+    ],
+    skipDuplicates: true,
+  });
+
+  // Crear mediciones de ejemplo (Measurement)
+  await prisma.measurement.createMany({
+    data: [
+      {
+        patientId: bryanPatient.id,
+        type: 'HEART_RATE',
+        value: 62,
+        unit: 'bpm',
+        source: 'MANUAL_ENTRY',
+        measuredAt: new Date('2025-02-10T08:00:00'),
+      },
+      {
+        patientId: bryanPatient.id,
+        type: 'BLOOD_PRESSURE_SYSTOLIC',
+        value: 118,
+        unit: 'mmHg',
+        source: 'MANUAL_ENTRY',
+        measuredAt: new Date('2025-02-10T08:00:00'),
+      },
+      // ...
+    ],
+    skipDuplicates: true,
+  });
+
+  console.log(`✅ Bryan creado: ${bryanUser.email} (Patient ID: ${bryanPatient.id})`);
+
+  // 2. Crear Abraham (si no existe)
+  const abrahamPassword = await hashPassword('abraham123456');
+
+  const abrahamUser = await prisma.user.upsert({
     where: { email: 'abraham@visionaryai.lat' },
     update: {},
     create: {
-      id: 'abraham-001',
-      name: 'Abraham',
       email: 'abraham@visionaryai.lat',
-      age: 34,
-      height: 178,
-      targetWeight: 80,
-      activityLevel: ActivityLevel.EXTREMELY_ACTIVE,
+      password: abrahamPassword,
+      firstName: 'Abraham',
+      lastName: 'Visionary',
+      name: 'Abraham Visionary',
+      role: 'PATIENT',
     },
   });
 
-  console.log('✅ Patient created:', abraham.id);
-
-  // 2. Composición corporal inicial (última medición)
-  const composition = await prisma.compositionRecord.create({
-    data: {
-      patientId: abraham.id,
-      date: new Date('2026-02-10T08:30:00Z'),
-      weight: 78.5,
-      smm: 36.2,
-      pbf: 16.8,
-      bodyFatMass: 13.2,
-      totalBodyWater: 48.3,
-      protein: 12.4,
-      minerals: 3.1,
-      bmr: 1850,
-      vfl: 4,
-      phaseAngle: 7.2,
-      waistHipRatio: 0.88,
-      source: DataSource.INBODY_970,
-      deviceId: 'INBODY-970-001',
-      isLatest: true,
-      notes: 'Medición post-entreno, ayuno 12h',
+  const abrahamPatient = await prisma.patient.upsert({
+    where: { userId: abrahamUser.id },
+    update: {},
+    create: {
+      userId: abrahamUser.id,
+      dateOfBirth: new Date('1989-01-01'),
+      gender: 'MALE',
+      heightCm: 175,
+      targetWeightKg: 80,
+      onboardingStep: 4,
+      onboardingCompleted: true,
     },
   });
 
-  console.log('✅ Composition recorded:', composition.id);
-
-  // 3. Composición anterior (para tendencias)
+  // Composición simple para Abraham
   await prisma.compositionRecord.create({
     data: {
-      patientId: abraham.id,
-      date: new Date('2026-01-15T08:30:00Z'),
-      weight: 79.2,
-      smm: 35.8,
-      pbf: 17.2,
-      bodyFatMass: 13.6,
-      totalBodyWater: 47.9,
-      protein: 12.2,
-      minerals: 3.0,
-      bmr: 1840,
-      vfl: 5,
-      phaseAngle: 6.9,
-      waistHipRatio: 0.89,
-      source: DataSource.INBODY_970,
-      deviceId: 'INBODY-970-001',
-      isLatest: false,
-      notes: 'Baseline pre-ciclo de fuerza',
+      patientId: abrahamPatient.id,
+      measuredAt: new Date('2025-02-01'),
+      source: 'INBODY_970',
+      weight: 78.5,
+      bodyFatMass: 12.0,
+      muscleMass: 35.2,
+      bodyFatPercentage: 15.3,
+      visceralFatRating: 8,
+      bmr: 1750,
+      phaseAngle: 5.8,
     },
   });
 
-  // 4. Métrica de buceo (última inmersión)
-  await prisma.metricLog.create({
-    data: {
-      patientId: abraham.id,
-      type: 'DEPTH' as any,
-      value: 32.5,
-      unit: 'm',
-      startedAt: new Date('2026-02-08T14:30:00Z'),
-      endedAt: new Date('2026-02-08T14:52:00Z'),
-      duration: 1320,
-      metadata: {
-        decompressionViolated: false,
-        safetyStop: true,
-        gasMix: '32%',
-        bottomTime: 18,
-      },
-      location: {
-        lat: 20.2147,
-        lng: -87.4298,
-        site: 'Cenote Dos Ojos',
-      },
-      source: DataSource.SHEARWATER_PERDIX,
-      deviceId: 'PERDIX-AI-7782',
-      isProcessed: true,
-      hasAlert: false,
+  console.log(`✅ Abraham creado: ${abrahamUser.email}`);
+
+  // 3. Crear doctor de ejemplo
+  const doctorPassword = await hashPassword('doctor123456');
+
+  const doctorUser = await prisma.user.upsert({
+    where: { email: 'dr.garcia@curie.health' },
+    update: {},
+    create: {
+      email: 'dr.garcia@curie.health',
+      password: doctorPassword,
+      firstName: 'María',
+      lastName: 'García',
+      name: 'Dra. María García',
+      role: 'DOCTOR',
     },
   });
 
-  // 5. Evento de sistema (ejemplo)
-  await prisma.systemEvent.create({
-    data: {
-      patientId: abraham.id,
-      type: EventType.SYNC_COMPLETED,
-      severity: EventSeverity.INFO,
-      title: 'Sincronización completada',
-      description: 'Datos de Shearwater Perdix sincronizados correctamente',
-      data: { device: 'SHEARWATER_PERDIX', records: 1 },
-      isRead: true,
-      isProcessed: true,
-      createdAt: new Date('2026-02-08T15:00:00Z'),
+  await prisma.doctor.upsert({
+    where: { userId: doctorUser.id },
+    update: {},
+    create: {
+      userId: doctorUser.id,
+      licenseNumber: 'MED-GT-12345',
+      specialty: 'Medicina Interna',
+      subspecialties: ['Nutrición Clínica', 'Medicina del Deporte'],
+      clinicName: 'Centro Médico Curie',
+      clinicAddress: 'Zona 10, Ciudad de Guatemala',
+      consultationFee: 800,
+      bio: 'Especialista en medicina preventiva y optimización del rendimiento físico',
+      yearsOfExperience: 12,
+      acceptingPatients: true,
+      languages: ['es', 'en'],
+      isVerified: true,
     },
   });
 
-  // 6. Receta activa (TRT)
-  await prisma.prescription.create({
-    data: {
-      patientId: abraham.id,
-      medication: 'Enantato de Testosterona',
-      dosage: '250mg',
-      frequency: 'Cada 7 días (lunes AM)',
-      prescribedBy: 'Dr. García (Endocrinología)',
-      prescribedAt: new Date('2025-01-01'),
-      validUntil: new Date('2025-07-01'),
-      notes: 'Aplicación IM profunda en glúteo. Rotar sitios.',
-      isActive: true,
-    },
-  });
+  console.log(`✅ Doctor creado: ${doctorUser.email}`);
 
-  // 7. Configuración del paciente
-  await prisma.patientConfig.create({
-    data: {
-      patientId: abraham.id,
-      alertOnDecoViolation: true,
-      alertOnDataConflict: true,
-      alertThresholdBPM: 100,
-      preferredUnitWeight: 'kg',
-      preferredUnitHeight: 'cm',
-      targetSMM: 38.0,
-      targetPBF: 15.0,
-      maxDepthAlert: 45.0,
-    },
-  });
-
-  console.log('✅ Seed completed successfully');
+  console.log('\n🎉 Seed finalizado con éxito!');
+  console.log('Credenciales de prueba:');
+  console.log('  Bryan: bryan.jaramillo@email.com / bryan123456');
+  console.log('  Abraham: abraham@visionaryai.lat / abraham123456');
+  console.log('  Doctor: dr.garcia@curie.health / doctor123456');
 }
 
 main()
   .catch((e) => {
-    console.error('❌ Seed failed:', e);
+    console.error('Error en seed:', e);
     process.exit(1);
   })
   .finally(async () => {
