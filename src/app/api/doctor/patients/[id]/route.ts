@@ -6,9 +6,10 @@ import { getPatientDetail } from '@/lib/doctor/patient-queries';
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const token = await getAccessToken();
         if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -23,7 +24,7 @@ export async function GET(
 
         if (!doctor) return NextResponse.json({ error: 'Doctor profile not found' }, { status: 404 });
 
-        const patient = await getPatientDetail(params.id, doctor.id);
+        const patient = await getPatientDetail(id, doctor.id);
 
         if (!patient) {
             return NextResponse.json({ error: 'Patient not found or no access' }, { status: 404 });

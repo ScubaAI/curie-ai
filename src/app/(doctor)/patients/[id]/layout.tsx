@@ -1,4 +1,4 @@
-// src/app/(doctor)/patients/[patientId]/layout.tsx
+// src/app/(doctor)/patients/[id]/layout.tsx
 import React from 'react';
 import Link from 'next/link';
 import {
@@ -19,26 +19,31 @@ export default async function PatientDetailLayout({
     params
 }: {
     children: React.ReactNode;
-    params: { patientId: string };
+    params: Promise<{ id: string }>;
 }) {
+    const { id } = await params;
+
+    // Alias to patientId for clarity in logic below if needed, or just use id
+    const patientId = id;
+
     const token = await getAccessToken();
     if (!token) redirect('/login');
 
     const payload = verifyAccessToken(token);
 
     const patient = await prisma.patient.findUnique({
-        where: { id: params.patientId },
+        where: { id: patientId },
         include: { user: true }
     });
 
-    if (!patient) redirect('/admin/dashboard');
+    if (!patient) redirect('/doctor/dashboard'); // Fixed redirect from /admin/dashboard
 
     const tabs = [
-        { id: 'summary', label: 'Resumen', icon: LayoutDashboard, href: `/admin/patients/${params.patientId}` },
-        { id: 'composition', label: 'Composición', icon: LineChart, href: `/admin/patients/${params.patientId}/composition` },
-        { id: 'labs', label: 'Laboratorios', icon: Beaker, href: `/admin/patients/${params.patientId}/labs` },
-        { id: 'notes', label: 'Notas Médicas', icon: FileText, href: `/admin/patients/${params.patientId}/notes` },
-        { id: 'chat', label: 'Chat Curie', icon: MessageSquare, href: `/admin/patients/${params.patientId}/chat` },
+        { id: 'summary', label: 'Resumen', icon: LayoutDashboard, href: `/doctor/patients/${patientId}` },
+        { id: 'composition', label: 'Composición', icon: LineChart, href: `/doctor/patients/${patientId}/composition` },
+        { id: 'labs', label: 'Laboratorios', icon: Beaker, href: `/doctor/patients/${patientId}/labs` },
+        { id: 'notes', label: 'Notas Médicas', icon: FileText, href: `/doctor/patients/${patientId}/notes` },
+        { id: 'chat', label: 'Chat Curie', icon: MessageSquare, href: `/doctor/patients/${patientId}/chat` },
     ];
 
     return (
@@ -47,7 +52,7 @@ export default async function PatientDetailLayout({
             <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 pb-2 border-b border-slate-800">
                 <div className="flex items-center gap-5">
                     <Link
-                        href="/admin/dashboard"
+                        href="/doctor/dashboard"
                         className="p-3 bg-slate-900 border border-slate-800 rounded-2xl text-slate-500 hover:text-white transition-all"
                     >
                         <ArrowLeft className="w-5 h-5" />
@@ -71,7 +76,7 @@ export default async function PatientDetailLayout({
                         <Settings className="w-4 h-4" />
                         Configurar Plan
                     </button>
-                    <Link href="/admin/advisor" className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition-all text-sm font-bold shadow-lg shadow-emerald-900/20">
+                    <Link href="/doctor/advisor" className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white rounded-xl hover:bg-emerald-500 transition-all text-sm font-bold shadow-lg shadow-emerald-900/20">
                         Arkangel Advisor
                     </Link>
                 </div>

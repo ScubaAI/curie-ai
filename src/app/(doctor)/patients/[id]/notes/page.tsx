@@ -1,4 +1,4 @@
-// src/app/(doctor)/patients/[patientId]/notes/page.tsx
+// src/app/(doctor)/patients/[id]/notes/page.tsx
 import React from 'react';
 import { prisma } from '@/lib/prisma';
 import { getAccessToken, verifyAccessToken } from '@/lib/auth/session';
@@ -9,8 +9,9 @@ import { Clock, Calendar, Hash } from 'lucide-react';
 export default async function PatientNotesPage({
     params
 }: {
-    params: { patientId: string };
+    params: Promise<{ id: string }>;
 }) {
+    const { id: patientId } = await params;
     const token = await getAccessToken();
     if (!token) redirect('/login');
 
@@ -24,7 +25,7 @@ export default async function PatientNotesPage({
 
     const notes = await prisma.doctorNote.findMany({
         where: {
-            patientId: params.patientId,
+            patientId: patientId,
             doctorId: doctor.id
         },
         orderBy: { createdAt: 'desc' }
@@ -35,7 +36,7 @@ export default async function PatientNotesPage({
             {/* Editor - Sticky on LG */}
             <div className="lg:col-span-1">
                 <div className="sticky top-10">
-                    <NoteEditor patientId={params.patientId} />
+                    <NoteEditor patientId={patientId} />
 
                     <div className="mt-8 p-6 bg-slate-900/20 border border-slate-800 border-dashed rounded-3xl">
                         <h4 className="text-sm font-bold text-slate-500 uppercase tracking-widest mb-4">Guía de Notas</h4>

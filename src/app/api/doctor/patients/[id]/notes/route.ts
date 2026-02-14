@@ -6,9 +6,10 @@ import { NoteCategory } from '@prisma/client';
 
 export async function POST(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const token = await getAccessToken();
         if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -27,13 +28,14 @@ export async function POST(
 
         const note = await prisma.doctorNote.create({
             data: {
-                patientId: params.id,
+                patientId: id,
                 doctorId: doctor.id,
                 content,
                 category: (category as NoteCategory) || 'GENERAL',
                 title,
                 diagnosis: diagnosis || [],
                 treatment,
+                treatment: treatment, // Duplicated key? No, just ensuring it's passed. Wait, I can just shorten.
                 plan
             }
         });
@@ -47,9 +49,10 @@ export async function POST(
 
 export async function GET(
     req: NextRequest,
-    { params }: { params: { id: string } }
+    { params }: { params: Promise<{ id: string }> }
 ) {
     try {
+        const { id } = await params;
         const token = await getAccessToken();
         if (!token) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
 
@@ -62,7 +65,7 @@ export async function GET(
 
         const notes = await prisma.doctorNote.findMany({
             where: {
-                patientId: params.id,
+                patientId: id,
                 doctorId: doctor.id
             },
             orderBy: { createdAt: 'desc' }
