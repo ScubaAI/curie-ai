@@ -43,11 +43,11 @@ export default async function PatientSummaryPage({
     const latestComp = patient.compositions[0];
     const previousComp = patient.compositions[1];
 
-    const metrics = [
+    const metrics: { label: string; value: string | number; icon: React.ComponentType<{ className?: string }>; trend?: number; color: string; status?: string }[] = [
         { label: 'Peso', value: latestComp?.weight ? `${latestComp.weight} kg` : '--', icon: Scale, trend: previousComp ? latestComp.weight - previousComp.weight : 0, color: 'text-emerald-400' },
-        { label: 'Grasa Visceral', value: latestComp?.visceralFatRating || '--', icon: Zap, color: 'text-amber-400', status: (latestComp?.visceralFatRating || 0) > 10 ? 'critical' : 'normal' },
-        { label: 'Glucosa Ayunas', value: '98 mg/dL', icon: Droplet, color: 'text-cyan-400' },
-        { label: 'SPO2', value: '98%', icon: Wind, color: 'text-indigo-400' },
+        { label: 'Grasa Visceral', value: latestComp?.visceralFatRating ?? '--', icon: Zap, color: 'text-amber-400', trend: undefined, status: (latestComp?.visceralFatRating || 0) > 10 ? 'critical' : 'normal' },
+        { label: 'Glucosa Ayunas', value: '98 mg/dL', icon: Droplet, color: 'text-cyan-400', trend: undefined },
+        { label: 'SPO2', value: '98%', icon: Wind, color: 'text-indigo-400', trend: undefined },
     ];
 
     return (

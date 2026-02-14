@@ -28,8 +28,9 @@ async function getPatient(id: string) {
   const patient = await prisma.patient.findUnique({
     where: { id },
     include: {
+      user: true,
       compositions: {
-        orderBy: { date: "desc" },
+        orderBy: { measuredAt: "desc" },
         take: 10,
       },
       doctorNotes: {
@@ -42,7 +43,6 @@ async function getPatient(id: string) {
       _count: {
         select: {
           compositions: true,
-          metrics: true,
           labResults: true,
           doctorNotes: true,
         },
@@ -63,7 +63,6 @@ export default async function DoctorPatientDetailPage({ params }: Params) {
   // Stats for doctor view (includes notes)
   const stats = [
     { label: "Mediciones", value: patient._count.compositions, icon: Activity },
-    { label: "Inmersiones", value: patient._count.metrics, icon: TrendingUp },
     { label: "Análisis", value: patient._count.labResults, icon: FileText },
     { label: "Notas", value: patient._count.doctorNotes, icon: User },
   ];
@@ -77,10 +76,10 @@ export default async function DoctorPatientDetailPage({ params }: Params) {
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
           <div>
             <h1 className="text-3xl font-black tracking-tight bg-gradient-to-r from-white via-emerald-200 to-emerald-400 bg-clip-text text-transparent">
-              Paciente: {patient.name}
+              Paciente: {patient.user.firstName} {patient.user.lastName}
             </h1>
             <p className="text-slate-400 mt-1 text-sm font-light">
-              ID: {patient.id} • {patient.email}
+              ID: {patient.id} • {patient.user.email}
             </p>
           </div>
           <div className="flex gap-8">
@@ -102,11 +101,11 @@ export default async function DoctorPatientDetailPage({ params }: Params) {
         {/* Columna izquierda - Contenido del paciente */}
         <div className="lg:col-span-3 space-y-10">
           <PatientHeader
-            name={patient.name}
+            name={`${patient.user.firstName || ''} ${patient.user.lastName || ''}`.trim()}
             id={patient.id}
-            email={patient.email}
-            age={patient.age}
-            height={patient.height}
+            email={patient.user.email}
+             age={patient.user.dateOfBirth ? new Date().getFullYear() - new Date(patient.user.dateOfBirth).getFullYear() : null}
+            height={patient.heightCm}
             targetWeight={patient.targetWeight}
           />
 
@@ -124,19 +123,18 @@ export default async function DoctorPatientDetailPage({ params }: Params) {
                     value={latestComposition.weight}
                     unit="kg"
                     icon={Activity}
-                    description={`Última: ${formatDate(latestComposition.date)}`}
+                    description={`Última: ${formatDate(latestComposition.measuredAt)}`}
                   />
                   <MetricCard
                     label="Masa Muscular"
-                    value={latestComposition.smm}
+                    value={latestComposition.muscleMass}
                     unit="kg"
                     icon={Activity}
                   />
                   <MetricCard
                     label="Grasa Corporal"
-                    value={latestComposition.pbf}
+                    value={latestComposition.bodyFatPercentage}
                     unit="%"
-                    inverseTrend={true}
                     icon={Activity}
                     description={`Masa grasa: ${latestComposition.bodyFatMass?.toFixed(1)} kg`}
                   />
@@ -152,7 +150,7 @@ export default async function DoctorPatientDetailPage({ params }: Params) {
             <h2 className="text-xl font-bold mb-6 bg-gradient-to-r from-white to-emerald-300 bg-clip-text text-transparent">
               Historial de Compositions
             </h2>
-            {patient.compositions.length > 0 ? (
+            {patient.compositions?.length > 0 ? (
               <CompositionTable
                 compositions={patient.compositions}
                 formatDate={formatDate}
@@ -168,7 +166,10 @@ export default async function DoctorPatientDetailPage({ params }: Params) {
               <Activity className="w-6 h-6 text-purple-400" />
               Asesor de Inmersiones (ArkAngel)
             </h2>
-            <AdvisorChat patientId={patient.id} />
+            <AdvisorChat
+              patientId={patient.id}
+              phaseAngle={latestComposition?.phaseAngle || null}
+            />
           </section>
 
           {/* Doctor Notes - Solo para doctores */}

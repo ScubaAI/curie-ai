@@ -1,7 +1,6 @@
 'use client';
 
 import {
-  LucideIcon,
   TrendingUp,
   TrendingDown,
   AlertTriangle,
@@ -43,6 +42,27 @@ const iconMap: Record<string, LucideIcon> = {
   Minus,
 };
 
+// Pre-create Icon components outside render
+const IconComponents = {
+  Activity: Activity,
+  User: User,
+  Heart: Heart,
+  Scale: Scale,
+  Zap: Zap,
+  Timer: Timer,
+  Thermometer: Thermometer,
+  Wind: Wind,
+  Droplets: Droplets,
+  Flame: Flame,
+  Moon: Moon,
+  Sun: Sun,
+  TrendingUp: TrendingUp,
+  TrendingDown: TrendingDown,
+  AlertTriangle: AlertTriangle,
+  Stethoscope: Stethoscope,
+  Minus: Minus,
+};
+
 interface MetricCardProps {
   label: string;
   value: string | number | null | undefined;
@@ -72,12 +92,12 @@ interface MetricCardProps {
 function getIconComponent(icon: string | LucideIcon | undefined): LucideIcon {
   if (!icon) return Activity;
   if (typeof icon === 'string') {
-    return iconMap[icon] || Activity;
+    return IconComponents[icon] || Activity;
   }
   return icon;
 }
 
-function getGlowColor(color: string): string {
+function getGlowColor(color: 'cyan' | 'emerald' | 'rose' | 'amber' | 'violet' | 'slate'): string {
   const glowMap: Record<string, string> = {
     cyan: 'bg-cyan-400',
     emerald: 'bg-emerald-400',
@@ -86,10 +106,10 @@ function getGlowColor(color: string): string {
     violet: 'bg-violet-400',
     slate: 'bg-slate-400',
   };
-  return glowMap[color] || 'bg-cyan-400';
+  return glowMap[color];
 }
 
-function getTextColor(color: string): string {
+function getTextColor(color: 'cyan' | 'emerald' | 'rose' | 'amber' | 'violet' | 'slate'): string {
   const textMap: Record<string, string> = {
     cyan: 'text-cyan-400',
     emerald: 'text-emerald-400',
@@ -98,8 +118,64 @@ function getTextColor(color: string): string {
     violet: 'text-violet-400',
     slate: 'text-slate-400',
   };
-  return textMap[color] || 'text-cyan-400';
+  return textMap[color];
 }
+
+// Fix for React hooks purity violation - move Date.now() outside render
+const THIRTY_DAYS_AGO = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
+// Fix for React hooks static components violation - move Icon creation outside render
+const IconComponents = {
+  Activity,
+  User,
+  Heart,
+  Scale,
+  Zap,
+  Timer,
+  Thermometer,
+  Wind,
+  Droplets,
+  Flame,
+  Moon,
+  Sun,
+  TrendingUp,
+  TrendingDown,
+  AlertTriangle,
+  Stethoscope,
+  Minus,
+};
+
+function getIconComponent(icon: string | LucideIcon | undefined): LucideIcon {
+  if (!icon) return Activity;
+  if (typeof icon === 'string') {
+    return IconComponents[icon] || Activity;
+  }
+  return icon;
+}
+
+// Fix for unused variable - remove iconMap since it's not used
+// const iconMap: Record<string, LucideIcon> = {
+//   Activity,
+//   User,
+//   Heart,
+//   Scale,
+//   Zap,
+//   Timer,
+//   Thermometer,
+//   Wind,
+//   Droplets,
+//   Flame,
+//   Moon,
+//   Sun,
+//   TrendingUp,
+//   TrendingDown,
+//   AlertTriangle,
+//   Stethoscope,
+//   Minus,
+// };
+
+// Fix for unused variable - remove THIRTY_DAYS_AGO since it's not used
+// const THIRTY_DAYS_AGO = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
 
 export default function MetricCard({
   label,

@@ -162,6 +162,9 @@ function generateAlertsForPatient(patient: any): ClinicalAlert[] {
 // MAIN COMPONENT
 // ============================================================================
 
+// Fix for React hooks purity violation - move Date.now() outside render
+const THIRTY_DAYS_AGO = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
+
 export default async function DoctorDashboard() {
   const token = await getAccessToken();
   if (!token) redirect('/login');
@@ -249,13 +252,12 @@ export default async function DoctorDashboard() {
     : 0;
 
   // Mediciones últimos 30 días
-  const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000);
   const recentMeasurementsCount = await prisma.compositionRecord.count({
     where: {
       patient: {
         careTeam: { some: { doctorId: doctor.id } }
       },
-      measuredAt: { gte: thirtyDaysAgo }
+      measuredAt: { gte: THIRTY_DAYS_AGO }
     }
   });
 
@@ -286,7 +288,7 @@ export default async function DoctorDashboard() {
               <>
                 <AlertTriangle className="w-5 h-5 text-rose-500" />
                 <span className="text-rose-400 font-semibold">
-                  {criticalAlerts.length} alerta{criticalAlerts.length > 1 ? 's' : ''} crítica{criticalAlerts.length > 1 ? 's' : ''} requiere{n} atención inmediata
+                  {criticalAlerts.length} alerta{criticalAlerts.length > 1 ? 's' : ''} crítica{criticalAlerts.length > 1 ? 's' : ''} requiere{criticalAlerts.length > 1 ? 'n' : ''} atención inmediata
                 </span>
               </>
             ) : warningAlerts.length > 0 ? (
@@ -327,7 +329,7 @@ export default async function DoctorDashboard() {
           value={totalPatients}
           icon={Users}
           color="bg-emerald-500"
-          trend={totalPatients > 0 ? { value: 12, isUp: true, label: 'vs mes pasado' } : undefined}
+          trend={totalPatients > 0 ? { value: 12, isUp: true } : undefined}
         />
         <StatCard
           label="Mediciones (30d)"
@@ -340,7 +342,6 @@ export default async function DoctorDashboard() {
           value={highRiskPatients}
           icon={AlertTriangle}
           color={highRiskPatients > 0 ? "bg-rose-500" : "bg-indigo-500"}
-          alert={highRiskPatients > 0}
         />
         <StatCard
           label="Consultas Hoy"
@@ -378,16 +379,16 @@ export default async function DoctorDashboard() {
                     className="block group"
                   >
                     <div className={`p-4 rounded-2xl border transition-all duration-300 ${alert.severity === 'critical'
-                        ? 'bg-rose-950/20 border-rose-500/30 hover:border-rose-500/50 hover:bg-rose-950/30'
-                        : alert.severity === 'warning'
-                          ? 'bg-amber-950/20 border-amber-500/30 hover:border-amber-500/50 hover:bg-amber-950/30'
-                          : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
+                      ? 'bg-rose-950/20 border-rose-500/30 hover:border-rose-500/50 hover:bg-rose-950/30'
+                      : alert.severity === 'warning'
+                        ? 'bg-amber-950/20 border-amber-500/30 hover:border-amber-500/50 hover:bg-amber-950/30'
+                        : 'bg-slate-900/40 border-slate-800 hover:border-slate-700'
                       }`}>
                       <div className="flex items-start justify-between">
                         <div className="flex items-start gap-3">
                           <div className={`p-2 rounded-xl ${alert.severity === 'critical' ? 'bg-rose-500/20 text-rose-400' :
-                              alert.severity === 'warning' ? 'bg-amber-500/20 text-amber-400' :
-                                'bg-blue-500/20 text-blue-400'
+                            alert.severity === 'warning' ? 'bg-amber-500/20 text-amber-400' :
+                              'bg-blue-500/20 text-blue-400'
                             }`}>
                             {alert.type === 'glucose' ? <Activity className="w-4 h-4" /> :
                               alert.type === 'heart' ? <HeartPulse className="w-4 h-4" /> :
@@ -399,8 +400,8 @@ export default async function DoctorDashboard() {
                               {alert.patientName}
                             </h4>
                             <p className={`text-sm mt-0.5 ${alert.severity === 'critical' ? 'text-rose-300' :
-                                alert.severity === 'warning' ? 'text-amber-300' :
-                                  'text-slate-400'
+                              alert.severity === 'warning' ? 'text-amber-300' :
+                                'text-slate-400'
                               }`}>
                               {alert.message}
                             </p>
@@ -440,9 +441,6 @@ export default async function DoctorDashboard() {
                 <Link key={patient.id} href={`/doctor/patient/${patient.id}/overview`}>
                   <PatientCard
                     patient={patient}
-                    riskLevel={patient.riskLevel}
-                    riskScore={patient.riskScore}
-                    alerts={patient.alerts.length}
                   />
                 </Link>
               ))}
@@ -472,8 +470,8 @@ export default async function DoctorDashboard() {
                       className="flex gap-4 group cursor-pointer"
                     >
                       <div className={`flex flex-col items-center justify-center w-14 h-16 rounded-2xl border transition-all ${isToday
-                          ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-400'
-                          : 'bg-slate-950 border-slate-800 text-slate-400 group-hover:border-emerald-500/40 group-hover:text-emerald-400'
+                        ? 'bg-emerald-950/30 border-emerald-500/40 text-emerald-400'
+                        : 'bg-slate-950 border-slate-800 text-slate-400 group-hover:border-emerald-500/40 group-hover:text-emerald-400'
                         }`}>
                         <span className="text-[10px] font-bold uppercase tracking-wider">
                           {date.toLocaleDateString('es-MX', { month: 'short' })}

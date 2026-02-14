@@ -216,7 +216,7 @@ export default function PatientDashboardPage() {
                       : undefined
                   }
                   description={`Medido el ${formatDate(latest.date)}`}
-                  color="text-cyan-400"
+                  color="cyan"
                 />
 
                 <MetricCard
@@ -228,7 +228,7 @@ export default function PatientDashboardPage() {
                       ? { value: Math.abs(smmChange), isUp: smmChange > 0 }
                       : undefined
                   }
-                  color="text-emerald-400"
+                  color="emerald"
                 />
 
                 <MetricCard
@@ -241,7 +241,7 @@ export default function PatientDashboardPage() {
                       : undefined
                   }
                   description={`Masa grasa: ${latest.bodyFatMass?.toFixed(1) ?? '—'} kg`}
-                  color="text-rose-400"
+                  color="rose"
                 />
               </div>
 
