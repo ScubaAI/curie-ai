@@ -9,7 +9,7 @@ import { ProductCard } from './ProductCard';
 import { ProductFilters } from './ProductFilters';
 import { ProductSort } from './ProductSort';
 import { EmptyShopState } from './EmptyShopState';
-import { RecommendedBanner } from './RecommendedBanner';
+import RecommendedBanner from './RecommendedBanner';
 import { getRecommendedProducts } from '@/lib/shop/getRecommendedProducts';
 import { ProductTrustBadges } from '@/components/shared/ProductTrustBadges';
 
